@@ -1,0 +1,576 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090c15;
+  --foreground: #e8ebf7;
+
+  --primary: #c0c1ff;
+  --on-primary: #1000a9;
+  --primary-container: #8083ff;
+  --on-primary-container: #0d0096;
+  
+  --secondary: #d0bcff;
+  --on-secondary: #3c0091;
+  --secondary-container: #571bc1;
+  --on-secondary-container: #c4abff;
+  
+  --tertiary: #ffb783;
+  --on-tertiary: #4f2500;
+  --tertiary-container: #d97721;
+  --on-tertiary-container: #452000;
+  
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+  
+  --surface: #090c15;
+  --surface-dim: #090c15;
+  --surface-bright: #2b3145;
+  --surface-container-lowest: #06080f;
+  --surface-container-low: #0f131e;
+  --surface-container: #141826;
+  --surface-container-high: #1b2030;
+  --surface-container-highest: #252b3c;
+  --on-surface: #e8ebf7;
+  --on-surface-variant: #a7adc6;
+
+  --outline: #868ca4;
+  --outline-variant: #272d3e;
+
+  /* Emil-grade easing — the built-ins are too weak */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --color-surface: var(--surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+
+  /* ─── Aliases for the blueprint-brutalism landing ───
+     Mapped onto the periwinkle system so the marketing route
+     gets its own vocabulary without touching the app pages. */
+  --color-border: var(--outline-variant);
+  --color-muted: var(--surface-container);
+  --color-muted-foreground: var(--on-surface-variant);
+  --color-card: var(--surface-container-low);
+  --color-popover: var(--surface-container-high);
+  --color-surface-lowest: var(--surface-container-lowest);
+  --color-primary-foreground: var(--on-primary);
+
+  --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #252b3c;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #353c52;
+}
+
+/* Frosted chrome — sidebar, navbar, modals */
+.glass-panel {
+  background: color-mix(in oklab, var(--surface-container-low) 70%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid color-mix(in oklab, #ffffff 7%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, #ffffff 7%, transparent);
+}
+
+/* Elevated surface — the workhorse card across the app */
+.nexora-card {
+  background-color: var(--surface-container-low);
+  border: 1px solid color-mix(in oklab, #ffffff 6%, transparent);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #ffffff 5%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 8px 24px -16px rgb(0 0 0 / 0.6);
+}
+
+/* Interactive card — lifts on hover, no layout shift (transform only) */
+.nexora-card-interactive {
+  transition:
+    transform 0.22s var(--ease-out),
+    border-color 0.22s var(--ease-out),
+    box-shadow 0.22s var(--ease-out);
+  cursor: pointer;
+  will-change: transform;
+}
+.nexora-card-interactive:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--primary) 35%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #ffffff 6%, transparent),
+    0 12px 32px -16px rgb(0 0 0 / 0.7),
+    0 0 0 1px color-mix(in oklab, var(--primary) 14%, transparent);
+}
+.nexora-card-interactive:active {
+  transform: translateY(-2px) scale(0.995);
+}
+
+/* AI/insight card — periwinkle-tinted glass with edge light */
+.nexora-ai-card {
+  background: color-mix(in oklab, var(--primary) 6%, var(--surface-container-low));
+  border: 1px solid color-mix(in oklab, var(--primary) 22%, transparent);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #ffffff 6%, transparent),
+    0 8px 30px -18px color-mix(in oklab, var(--primary) 60%, transparent);
+}
+
+/* Custom grid animation */
+@keyframes grid-animate {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(60px);
+  }
+}
+
+.animate-grid {
+  animation: grid-animate 15s linear infinite;
+}
+
+/* ─── Marketing motion helpers ─── */
+
+/* Edge-masked infinite logo marquee */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 38s linear infinite;
+}
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+}
+
+/* Blinking caret for the typing prompt */
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--primary);
+  animation: caret-blink 1.05s step-end infinite;
+}
+
+/* Slow conic glow rotation for the CTA border */
+@keyframes spin-border {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin-border {
+  animation: spin-border 4.5s linear infinite;
+}
+
+/* Soft breathing glow for hero accents */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.04);
+  }
+}
+.breathe {
+  animation: breathe 6s ease-in-out infinite;
+}
+
+/* Pressable micro-feedback for buttons/cards */
+.pressable {
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pressable:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .caret,
+  .spin-border,
+  .breathe,
+  .animate-grid {
+    animation: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   COOKED LAYER — blueprint brutalism for marketing
+   Mega specimen type, scope traces, ghost numerals,
+   instrument labels, engineering-paper hairlines.
+   ──────────────────────────────────────────────── */
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Instrument labels and mono readouts */
+.text-label {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.text-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Display + headline scale */
+.text-display {
+  font-size: clamp(40px, 6vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
+.text-headline-lg {
+  font-size: 32px;
+  line-height: 40px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+.text-headline-md {
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+/* Mega specimen type + wireframe stroke variants */
+.text-mega {
+  font-size: clamp(3.25rem, 9.5vw, 9.75rem);
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.text-stroke {
+  -webkit-text-stroke: 1.5px color-mix(in oklab, var(--foreground) 90%, transparent);
+  color: transparent;
+}
+.text-stroke-primary {
+  -webkit-text-stroke: 1.5px var(--primary);
+  color: transparent;
+}
+.text-stroke-faint {
+  -webkit-text-stroke: 1px var(--border);
+  color: transparent;
+}
+
+/* Ghost section numerals — architectural watermarks */
+.ghost-num {
+  font-size: clamp(5.5rem, 13vw, 10.5rem);
+  line-height: 1;
+  font-weight: 650;
+  -webkit-text-stroke: 1px var(--border);
+  color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Edge-lit panel (replaces neon glow) */
+.edge-light {
+  border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* Instrument dot-grid texture */
+.dot-grid {
+  background-image: radial-gradient(var(--outline) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Vertical edge text */
+.text-vertical {
+  writing-mode: vertical-rl;
+}
+
+/* Counter-scrolling marquee variant */
+.marquee-rev {
+  animation-direction: reverse;
+}
+
+/* Entrance rise + staggered waterfall */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-rise {
+  animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.stagger > * {
+  animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 40ms; }
+.stagger > *:nth-child(2) { animation-delay: 100ms; }
+.stagger > *:nth-child(3) { animation-delay: 160ms; }
+.stagger > *:nth-child(4) { animation-delay: 220ms; }
+.stagger > *:nth-child(5) { animation-delay: 280ms; }
+.stagger > *:nth-child(6) { animation-delay: 340ms; }
+.stagger > *:nth-child(7) { animation-delay: 400ms; }
+.stagger > *:nth-child(8) { animation-delay: 460ms; }
+
+/* Oscilloscope traces — traveling dash along pathLength=1 */
+@keyframes trace {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.trace-path {
+  stroke-dasharray: 0.22 0.78;
+  animation: trace 7s linear infinite;
+}
+.trace-path-slow {
+  stroke-dasharray: 0.12 0.88;
+  animation: trace 11s linear infinite reverse;
+}
+
+/* Film grain overlay */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .stagger > *,
+  .trace-path,
+  .trace-path-slow,
+  .marquee-rev {
+    animation: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════
+   SLEEK LAYER — Apple / iOS grade
+   Frosted glass, soft depth, spring-feel presses,
+   restrained accent. Built on the easing tokens above.
+   ──────────────────────────────────────────────── */
+
+/* Liquid glass — frosted, edge-lit, soft floor shadow */
+.glass {
+  background: color-mix(in oklab, var(--surface-container-low) 62%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid color-mix(in oklab, #ffffff 8%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #ffffff 9%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 20px 40px -24px rgb(0 0 0 / 0.7);
+}
+
+/* Hairline top sheen for cards and the nav */
+.sheen {
+  position: relative;
+}
+.sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, #ffffff 22%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* iOS pill — primary action */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  font-weight: 590;
+  letter-spacing: -0.01em;
+  transition:
+    transform 0.16s var(--ease-out),
+    background-color 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+  cursor: pointer;
+  will-change: transform;
+}
+/* Emil: subtle scale on press, never layout shift */
+.pill:active,
+.press:active {
+  transform: scale(0.97);
+}
+.press {
+  transition: transform 0.16s var(--ease-out);
+  cursor: pointer;
+  will-change: transform;
+}
+
+/* Soft accent glow, used sparingly behind hero/CTA */
+.aura {
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklab, var(--primary) 22%, transparent),
+    transparent 70%
+  );
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+/* Gentle floating drift for the hero device */
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.float-soft {
+  animation: float-soft 7s var(--ease-in-out) infinite;
+}
+
+/* Conic sheen sweep for highlighted cards */
+@keyframes sweep {
+  to { transform: translateX(220%); }
+}
+.sweep-on-hover {
+  position: relative;
+  overflow: hidden;
+}
+.sweep-on-hover::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    color-mix(in oklab, #ffffff 10%, transparent),
+    transparent
+  );
+  transform: translateX(-160%);
+  transition: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .sweep-on-hover:hover::after {
+    animation: sweep 0.9s var(--ease-out) forwards;
+  }
+}
+
+/* Aurora — two slow drifting blobs, calm not busy */
+@keyframes aurora-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(8%, -12%) scale(1.15); }
+  66% { transform: translate(-10%, 8%) scale(0.9); }
+}
+@keyframes aurora-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-12%, 10%) scale(1.1); }
+  66% { transform: translate(10%, -8%) scale(0.95); }
+}
+.aurora-a { animation: aurora-a 26s var(--ease-in-out) infinite; }
+.aurora-b { animation: aurora-b 30s var(--ease-in-out) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .float-soft,
+  .aurora-a,
+  .aurora-b,
+  .sweep-on-hover::after {
+    animation: none !important;
+  }
+}
