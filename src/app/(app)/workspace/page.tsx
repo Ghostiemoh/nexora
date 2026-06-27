@@ -80,7 +80,7 @@ export default function WorkspacePage() {
   if (!mounted) {
     return (
       <div className="p-6 max-w-[1440px] mx-auto flex items-center justify-center min-h-[60vh]">
-        <div className="text-zinc-500 font-mono text-xs animate-pulse">
+        <div className="text-zinc-500 font-mono text-xs">
           Loading Workspace Environment...
         </div>
       </div>
@@ -327,7 +327,7 @@ export default function WorkspacePage() {
                               <td key={col} className="p-3.5 truncate max-w-[180px] border-r border-white/5 group-hover:text-white transition-colors">
                                 {row[col] === null || row[col] === undefined ? (
                                   <span className="inline-flex items-center gap-1.5 text-tertiary">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
                                     null
                                   </span>
                                 ) : (

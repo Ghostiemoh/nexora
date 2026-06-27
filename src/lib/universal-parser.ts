@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import type { Row } from "./types";
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- dynamic JSON/sheet rows are genuinely untyped */
 export function flattenObject(obj: any, prefix = "", depth = 1): Record<string, any> {
   if (depth > 3 || !obj || typeof obj !== "object") {
     return { [prefix.slice(0, -1)]: obj };

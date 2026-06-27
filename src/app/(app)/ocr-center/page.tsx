@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import {
-  ScanLine,
   Upload,
   FileText,
   CheckCircle2,
@@ -35,7 +34,7 @@ export default function OcrCenterPage() {
   if (!mounted) {
     return (
       <div className="p-6 max-w-[1440px] mx-auto flex items-center justify-center min-h-[60vh]">
-        <div className="text-zinc-500 font-mono text-xs animate-pulse">
+        <div className="text-zinc-500 font-mono text-xs">
           Loading OCR Environment...
         </div>
       </div>
@@ -91,7 +90,7 @@ export default function OcrCenterPage() {
       </div>
 
       {/* Main Scanner Canvas */}
-      <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-8 flex flex-col items-center justify-center min-h-[360px] relative overflow-hidden backdrop-blur-md shadow-2xl">
+      <div className="nexora-card p-8 flex flex-col items-center justify-center min-h-[360px] relative overflow-hidden backdrop-blur-md shadow-2xl">
         {/* Style block for local scan line animation */}
         <style dangerouslySetInnerHTML={{__html: `
           @keyframes laser-sweep {
@@ -188,7 +187,7 @@ export default function OcrCenterPage() {
             </div>
 
             {/* Extracted table preview */}
-            <div className="bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden shadow-inner">
+            <div className="nexora-card overflow-hidden shadow-inner">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-white/5 bg-zinc-900/30 text-zinc-500 font-bold">

@@ -16,9 +16,6 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
   const activeId = useNexora((s) => s.activeId);
   const joinDatasetsAction = useNexora((s) => s.joinDatasets);
 
-  // If there are less than 2 datasets, we shouldn't open this modal
-  if (datasets.length < 2) return null;
-
   const initialLeftId = activeId || datasets[0]?.id || "";
   const initialRightId = datasets.find((d) => d.id !== initialLeftId)?.id || "";
 
@@ -35,15 +32,17 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
   const [outputName, setOutputName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Update keys and output name when tables change
+  // Reset the join keys and output name whenever the chosen tables change.
   useEffect(() => {
     if (leftDs) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLeftKey(leftDs.columns[0] || "");
     }
   }, [leftId, leftDs]);
 
   useEffect(() => {
     if (rightDs) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRightKey(rightDs.columns[0] || "");
     }
   }, [rightId, rightDs]);
@@ -52,11 +51,13 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
     if (leftDs && rightDs) {
       const cleanLeft = leftDs.name.replace(/\.[^/.]+$/, "");
       const cleanRight = rightDs.name.replace(/\.[^/.]+$/, "");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOutputName(`${cleanLeft}_joined_${cleanRight}`);
     }
   }, [leftId, rightId, leftDs, rightDs]);
 
-  if (!isOpen) return null;
+  // Guards live after all hooks so hook order stays stable across renders.
+  if (!isOpen || datasets.length < 2) return null;
 
   // Identify colliding columns
   const collidingCols = leftDs && rightDs
@@ -82,8 +83,8 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
         router.push("/workspace");
         onClose();
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to execute join operation.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to execute join operation.");
     }
   };
 
@@ -203,7 +204,7 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
                 <button
                   key={item.type}
                   type="button"
-                  onClick={() => setJoinType(item.type as any)}
+                  onClick={() => setJoinType(item.type as "inner" | "left" | "right" | "full")}
                   className={`p-4 rounded-xl border text-left flex flex-col justify-between h-32 transition-all cursor-pointer ${
                     joinType === item.type
                       ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(192,193,255,0.1)]"

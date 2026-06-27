@@ -125,7 +125,7 @@ export default function SettingsPage() {
         {/* Tab Panels */}
         <div className="md:col-span-3">
           {activeTab === "database" && (
-            <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-6 space-y-6 backdrop-blur-md shadow-xl">
+            <div className="nexora-card p-6 space-y-6 backdrop-blur-md shadow-xl">
               <div className="border-b border-white/5 pb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Server className="w-5 h-5 text-primary" />
@@ -246,7 +246,7 @@ export default function SettingsPage() {
           )}
 
           {activeTab === "storage" && (
-            <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-6 space-y-8 backdrop-blur-md shadow-xl">
+            <div className="nexora-card p-6 space-y-8 backdrop-blur-md shadow-xl">
               <div className="border-b border-white/5 pb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Cpu className="w-5 h-5 text-primary" />
@@ -347,7 +347,7 @@ export default function SettingsPage() {
           )}
 
           {activeTab === "workspace" && (
-            <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-6 space-y-6 backdrop-blur-md shadow-xl">
+            <div className="nexora-card p-6 space-y-6 backdrop-blur-md shadow-xl">
               <div className="border-b border-white/5 pb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Grid className="w-5 h-5 text-primary" />

@@ -136,7 +136,6 @@ There are **${dataset.diagnostics.length} unresolved warnings** that you can fix
   }
 
   // 6. Default fallback
-  const firstCol = dataset.columns[0] || "*";
   return {
     text: `### Nexus AI Assistant
 I can help you audit your dataset. Try asking:

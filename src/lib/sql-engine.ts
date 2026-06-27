@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- query rows and aggregates are dynamically typed */
 import type { Row, CellValue } from "./types";
 
 export interface SqlResult {
@@ -269,7 +270,7 @@ function evaluateWhereClause(whereStr: string, row: Row): boolean {
     }
     
     const col = parts[0].trim().replace(/['"`]/g, "");
-    let valStr = parts[1].trim().replace(/^['"`]|['"`]$/g, "");
+    const valStr = parts[1].trim().replace(/^['"`]|['"`]$/g, "");
     const cell = row[col];
     
     if (op === "LIKE") {

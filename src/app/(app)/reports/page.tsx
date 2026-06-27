@@ -24,7 +24,7 @@ export default function ReportsPage() {
   if (!mounted) {
     return (
       <div className="p-6 max-w-[1440px] mx-auto flex items-center justify-center min-h-[60vh]">
-        <div className="text-zinc-500 font-mono text-xs animate-pulse">
+        <div className="text-zinc-500 font-mono text-xs">
           Loading Report Compiler Environment...
         </div>
       </div>
@@ -179,7 +179,7 @@ export default function ReportsPage() {
           Document Output Preview: {cleanName}_report.md
         </label>
         
-        <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-8 font-sans text-on-surface text-sm overflow-y-auto max-h-[600px] leading-relaxed shadow-2xl relative overflow-hidden space-y-6">
+        <div className="nexora-card p-8 font-sans text-on-surface text-sm overflow-y-auto max-h-[600px] leading-relaxed shadow-2xl relative overflow-hidden space-y-6">
           <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
           {/* Mock Markdown Document Rendered */}

@@ -64,7 +64,7 @@ export default function TeamPage() {
         {members.map((m) => (
           <div
             key={m.name}
-            className="bg-zinc-950/40 border border-white/5 rounded-2xl p-6 flex items-start gap-4 hover:border-white/10 transition-all relative group backdrop-blur-md shadow-xl"
+            className="nexora-card p-6 flex items-start gap-4 hover:border-white/10 transition-all relative group backdrop-blur-md shadow-xl"
           >
             <div className={`w-12 h-12 rounded-full border flex items-center justify-center font-mono font-bold text-sm shrink-0 shadow-[inset_0_1px_rgba(255,255,255,0.05)] ${m.bgClass}`}>
               {m.initials}

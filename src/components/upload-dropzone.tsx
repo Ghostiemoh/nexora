@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Upload, FileSpreadsheet, AlertCircle, FileText } from "lucide-react";
+import { Upload, AlertCircle, FileText } from "lucide-react";
 import { useNexora } from "../lib/store";
 import { parseCsvFile } from "../lib/csv";
 import { parseJsonContent, parseExcelWorkbook, parseExcelSheet } from "../lib/universal-parser";
 import { SheetSelectorModal } from "./layout/sheet-selector-modal";
-import type { Row } from "../lib/types";
 import * as XLSX from "xlsx";
 
 export function UploadDropzone() {
@@ -50,8 +49,8 @@ export function UploadDropzone() {
       } else {
         throw new Error("Unsupported file format. Please upload a .csv, .tsv, .json, or .xlsx file.");
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to process the file.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to process the file.");
     } finally {
       setBusy(false);
     }
@@ -94,8 +93,8 @@ export function UploadDropzone() {
       setExcelWorkbook(null);
       setExcelSheets([]);
       setExcelFilename("");
-    } catch (err: any) {
-      setError(err.message || "Failed to import worksheet.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to import worksheet.");
     } finally {
       setBusy(false);
     }

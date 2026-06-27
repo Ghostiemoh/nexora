@@ -28,19 +28,17 @@ export default function SqlLabPage() {
   const [result, setResult] = useState<SqlResult | null>(null);
   const [running, setRunning] = useState(false);
 
-  // Load prefilled query from session storage if redirected from AI Analyst Chat
+  // Sync editor with the active dataset: pull a prefilled query handed over from
+  // the AI Analyst (sessionStorage is an external store, so this belongs in an
+  // effect), otherwise seed a sensible default and clear the previous result.
   useEffect(() => {
-    if (activeDataset) {
-      const cleanName = activeDataset.name.replace(/\.[^/.]+$/, "");
-      const sessionQuery = window.sessionStorage.getItem("nexora_prefilled_sql");
-      if (sessionQuery) {
-        setQuery(sessionQuery);
-        window.sessionStorage.removeItem("nexora_prefilled_sql");
-      } else {
-        setQuery(`SELECT * FROM ${cleanName} LIMIT 10`);
-      }
-      setResult(null);
-    }
+    if (!activeDataset) return;
+    const cleanName = activeDataset.name.replace(/\.[^/.]+$/, "");
+    const sessionQuery = window.sessionStorage.getItem("nexora_prefilled_sql");
+    if (sessionQuery) window.sessionStorage.removeItem("nexora_prefilled_sql");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setQuery(sessionQuery ?? `SELECT * FROM ${cleanName} LIMIT 10`);
+    setResult(null);
   }, [activeId, activeDataset]);
 
   if (!mounted) {
@@ -67,15 +65,13 @@ export default function SqlLabPage() {
             <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(192,193,255,0.15)] shadow-[inset_0_1px_rgba(255,255,255,0.05)]">
               <Database className="w-6 h-6 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-white font-headline-md">
-              SQL Lab Sandbox
-            </h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-white">SQL Lab</h2>
             <p className="text-sm text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              Ingest a data source first to write and execute client-side relational SQL statements.
+              Load a dataset to write and run real SQL against it, right in your browser.
             </p>
           </div>
 
-          <div className="bg-zinc-950/40 border border-dashed border-white/10 hover:border-primary/40 rounded-2xl p-6 transition-all duration-300">
+          <div className="nexora-card p-6 border-dashed">
             <UploadDropzone />
           </div>
         </div>
@@ -242,9 +238,9 @@ export default function SqlLabPage() {
         {/* Console Container */}
         <div className="flex-1 overflow-auto p-6">
           {!result ? (
-            <div className="h-full flex flex-col justify-center items-center text-center text-zinc-500 font-mono text-xs uppercase tracking-wider">
-              <Terminal className="w-8 h-8 mb-3 text-zinc-700 animate-pulse" />
-              <span>Editor ready. Execute statements to preview results here.</span>
+            <div className="h-full flex flex-col justify-center items-center text-center text-on-surface-variant text-sm">
+              <Terminal className="w-8 h-8 mb-3 text-zinc-700" />
+              <span>Run a query to see results here.</span>
             </div>
           ) : result.error ? (
             /* ERROR MESSAGE */
@@ -257,15 +253,15 @@ export default function SqlLabPage() {
             </div>
           ) : (
             /* DATA TABLE RESULT */
-            <div className="bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-md shadow-2xl">
+            <div className="nexora-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-white/5 bg-zinc-900/30 text-zinc-500 font-bold">
+                    <tr className="border-b border-white/[0.06] text-on-surface-variant">
                       {result.columns.map((c) => (
                         <th
                           key={c}
-                          className="p-4 font-mono uppercase tracking-wider text-[10px]"
+                          className="p-3.5 font-medium text-[11px]"
                         >
                           {c}
                         </th>

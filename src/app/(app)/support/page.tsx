@@ -140,7 +140,7 @@ export default function SupportPage() {
             {filteredFaqs.length > 0 ? (
               <div className="space-y-3">
                 {filteredFaqs.map((faq) => (
-                  <div key={faq.q} className="bg-zinc-950/40 border border-white/5 rounded-2xl p-5 space-y-2 backdrop-blur-md shadow-xl">
+                  <div key={faq.q} className="nexora-card p-5 space-y-2 backdrop-blur-md shadow-xl">
                     <h4 className="font-bold text-white text-sm flex items-start gap-2">
                       <HelpCircle className="w-4.5 h-4.5 text-primary shrink-0 mt-0.5" />
                       {faq.q}
@@ -152,14 +152,14 @@ export default function SupportPage() {
                 ))}
               </div>
             ) : (
-              <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-6 text-center text-zinc-500 text-xs font-mono uppercase tracking-wider">
+              <div className="nexora-card p-6 text-center text-zinc-500 text-xs font-mono uppercase tracking-wider">
                 No matching articles found. Try another query.
               </div>
             )}
           </div>
 
           {/* Core Docs links */}
-          <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-4 flex items-center justify-between backdrop-blur-sm">
+          <div className="nexora-card p-4 flex items-center justify-between backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[inset_0_1px_rgba(255,255,255,0.05)] shrink-0">
                 <MessageSquare className="w-5 h-5" />
@@ -180,7 +180,7 @@ export default function SupportPage() {
         <div className="md:col-span-1 space-y-6">
           
           {/* Form Card */}
-          <div className="bg-zinc-950/40 border border-white/5 rounded-2xl p-6 space-y-4 backdrop-blur-md shadow-xl">
+          <div className="nexora-card p-6 space-y-4 backdrop-blur-md shadow-xl">
             <h3 className="text-zinc-500 font-mono text-[10px] font-bold uppercase tracking-wider border-b border-white/5 pb-3">
               Open Support Ticket
             </h3>
@@ -287,7 +287,7 @@ export default function SupportPage() {
             </h3>
             <div className="space-y-2">
               {tickets.map((t) => (
-                <div key={t.id} className="bg-zinc-950/20 border border-white/5 rounded-2xl p-4 flex flex-col gap-2 relative group hover:border-white/10 transition-all shadow-md">
+                <div key={t.id} className="nexora-card p-4 flex flex-col gap-2 relative group hover:border-white/10 transition-all shadow-md">
                   <div className="flex justify-between items-start">
                     <span className="text-[9px] font-mono text-zinc-500 font-bold">
                       {t.id}
