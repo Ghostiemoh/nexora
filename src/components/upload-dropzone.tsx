@@ -36,7 +36,7 @@ export function UploadDropzone() {
       } else if (ext === "json") {
         const text = await file.text();
         const result = parseJsonContent(text);
-        addDataset(name, result.columns, result.rows);
+        addDataset(name, result.columns, result.rows, result.truncated);
       } else if (ext === "xlsx") {
         const buffer = await file.arrayBuffer();
         const { sheets, workbook } = parseExcelWorkbook(buffer);
@@ -107,8 +107,7 @@ export function UploadDropzone() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`w-full max-w-lg border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
+        className={`w-full max-w-lg border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center transition-colors duration-200 ${
           isDragOver
             ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(192,193,255,0.2)]"
             : "border-outline-variant hover:border-primary/50 bg-surface-container-low/50"
@@ -119,7 +118,8 @@ export function UploadDropzone() {
           type="file"
           accept=".csv,.tsv,.json,.xlsx"
           onChange={handleFileChange}
-          className="hidden"
+          className="sr-only"
+          aria-describedby="upload-file-help"
         />
 
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
@@ -131,10 +131,19 @@ export function UploadDropzone() {
         </h3>
         
         <p className="text-on-surface-variant text-body-md max-w-sm mb-4 leading-relaxed">
-          Drag and drop a **CSV, TSV, JSON**, or **Excel** workbook here, or click to browse files.
+          Drag and drop a CSV, TSV, JSON, or Excel workbook here, or choose a file below.
         </p>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy}
+          className="pill h-10 px-4 bg-primary text-on-primary text-[13px] disabled:opacity-50"
+        >
+          <Upload className="w-4 h-4" aria-hidden="true" />
+          Choose file
+        </button>
         
-        <div className="flex flex-wrap justify-center gap-4 text-[11px] text-on-surface-variant font-mono">
+        <div id="upload-file-help" className="mt-4 flex flex-wrap justify-center gap-4 text-[11px] text-on-surface-variant font-mono">
           <span>Max Size: 25 MB</span>
           <span>•</span>
           <span>Max Rows: 50,000</span>
@@ -158,7 +167,7 @@ export function UploadDropzone() {
             setError(null);
             loadSample();
           }}
-          className="px-4 py-2 border border-primary/30 rounded-lg text-primary text-body-md font-semibold hover:bg-primary/10 hover:border-primary transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+          className="px-4 py-2 border border-primary/30 rounded-lg text-primary text-body-md font-semibold hover:bg-primary/10 hover:border-primary transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-95 cursor-pointer flex items-center gap-2"
         >
           <FileText className="w-4 h-4" />
           Load Customer Churn Sample

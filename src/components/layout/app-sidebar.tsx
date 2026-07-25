@@ -13,6 +13,8 @@ import {
   HelpCircle,
   BookOpen,
   ArrowUpRight,
+  Plug,
+  History,
 } from "lucide-react";
 import { useNexora } from "../../lib/store";
 
@@ -20,11 +22,13 @@ const MENU = [
   { name: "Dataset Doctor", href: "/dashboard", icon: HeartPulse },
   { name: "AI Analyst", href: "/workspace", icon: Sparkles, badge: true },
   { name: "SQL Lab", href: "/sql-lab", icon: Database },
+  { name: "Data Sources", href: "/connections", icon: Plug },
   { name: "OCR Center", href: "/ocr-center", icon: ScanLine },
   { name: "Team", href: "/team", icon: Users },
 ];
 
 const SECONDARY = [
+  { name: "History & Audit", href: "/history", icon: History },
   { name: "Support Desk", href: "/support", icon: HelpCircle },
   { name: "Export Reports", href: "/reports", icon: BookOpen },
 ];
@@ -78,14 +82,14 @@ export function AppSidebar() {
   const setActive = useNexora((s) => s.setActive);
 
   return (
-    <aside className="glass-panel w-64 flex flex-col h-full py-5 px-3 select-none shrink-0">
+    <aside className="glass-panel hidden lg:flex w-64 flex-col h-full py-5 px-3 select-none shrink-0 border-y-0 border-l-0">
       {/* Brand */}
       <Link href="/" className="press flex items-center gap-2.5 mb-7 px-2">
-        <svg className="w-7 h-7 shrink-0" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M40 60V140L100 175L160 140V60L100 25L40 60Z" stroke="#c0c1ff" strokeWidth="12" strokeLinejoin="round" />
-          <path d="M100 25L40 60L100 95L160 60L100 25Z" fill="#c0c1ff" fillOpacity="0.2" stroke="#c0c1ff" strokeWidth="8" strokeLinejoin="round" />
-          <path d="M100 95V175" stroke="#c0c1ff" strokeWidth="8" strokeLinecap="round" />
-          <circle cx="100" cy="100" r="15" fill="#c0c1ff" />
+        <svg className="w-7 h-7 shrink-0 text-primary" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M40 60V140L100 175L160 140V60L100 25L40 60Z" stroke="currentColor" strokeWidth="12" strokeLinejoin="round" />
+          <path d="M100 25L40 60L100 95L160 60L100 25Z" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="8" strokeLinejoin="round" />
+          <path d="M100 95V175" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+          <circle cx="100" cy="100" r="15" fill="currentColor" />
         </svg>
         <div className="flex flex-col">
           <span className="text-[15px] font-semibold text-on-surface leading-none tracking-tight">Nexora</span>
@@ -147,17 +151,17 @@ export function AppSidebar() {
           />
         ))}
 
-        {/* Upgrade card */}
+        {/* Free & local note */}
         <div className="nexora-ai-card mt-4 p-4 relative overflow-hidden">
-          <div className="text-[13px] font-semibold text-on-surface mb-0.5">Upgrade to Pro</div>
+          <div className="text-[13px] font-semibold text-on-surface mb-0.5">Free &amp; local</div>
           <div className="text-[11px] text-on-surface-variant mb-3 leading-relaxed">
-            Unlimited file size, saved workspaces, and exports.
+            Every feature is unlocked. Your data never leaves this device.
           </div>
           <Link
-            href="/#pricing"
+            href="/history"
             className="pill w-full h-9 bg-primary text-on-primary text-[12.5px]"
           >
-            View plans
+            View activity
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>

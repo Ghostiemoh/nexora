@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- query rows and aggregates are dynamically typed */
 import type { Row, CellValue } from "./types";
+import { parseNumeric } from "./number";
 
 export interface SqlResult {
   columns: string[];
@@ -9,135 +9,137 @@ export interface SqlResult {
 }
 
 /**
- * A client-side SQL engine that executes standard SQL queries against a list of JSON rows.
- * Supports:
- * - SELECT col1, col2, COUNT(*), SUM(col3), AVG(col4), MIN(col5), MAX(col6)
- * - WHERE col1 = 'val' AND col2 > 10
- * - GROUP BY col1, col2
- * - ORDER BY col1 DESC, col2 ASC
- * - LIMIT 10
+ * A client-side SQL engine that executes a practical subset of SQL against a
+ * list of JSON rows. Supports:
+ * - SELECT col1, col2, COUNT(*), COUNT(DISTINCT col), SUM/AVG/MIN/MAX(col), aliases
+ * - WHERE with =, !=, <, >, <=, >=, LIKE, IS NULL, IS NOT NULL and AND / OR
+ * - GROUP BY, ORDER BY (by name, alias, or ordinal), LIMIT
+ *
+ * String literals are masked before clause splitting so keywords inside quotes
+ * (e.g. WHERE city = 'ORDER BY North') never corrupt the parse.
  */
 export function executeSql(sql: string, data: Row[]): SqlResult {
   const start = performance.now();
-  
+  const timeMs = () => Math.max(0.1, parseFloat((performance.now() - start).toFixed(2)));
+
   try {
     if (!sql || sql.trim() === "") {
       throw new Error("Empty query");
     }
 
-    // Clean query
+    const dataColumns = data.length > 0 ? Object.keys(data[0]) : [];
+
+    // Normalise whitespace, drop trailing semicolon, then mask string literals.
     const cleanSql = sql.trim().replace(/\s+/g, " ").replace(/;$/, "");
-    
-    // Parse SELECT
-    const selectMatch = cleanSql.match(/SELECT\s+(.+?)\s+FROM/i);
+    const { masked, literals } = maskLiterals(cleanSql);
+
+    const selectMatch = masked.match(/SELECT\s+(.+?)\s+FROM\s+/i);
     if (!selectMatch) {
       throw new Error("Invalid query: SELECT ... FROM expected");
     }
     const selectStr = selectMatch[1];
-    
-    // Extract clauses
-    let whereStr = "";
-    let groupByStr = "";
-    let orderByStr = "";
-    let limitStr = "";
-    
-    const whereMatch = cleanSql.match(/WHERE\s+(.+?)(?:\s+GROUP\s+BY|\s+ORDER\s+BY|\s+LIMIT|$)/i);
-    if (whereMatch) whereStr = whereMatch[1];
-    
-    const groupByMatch = cleanSql.match(/GROUP\s+BY\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i);
-    if (groupByMatch) groupByStr = groupByMatch[1];
-    
-    const orderByMatch = cleanSql.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
-    if (orderByMatch) orderByStr = orderByMatch[1];
-    
-    const limitMatch = cleanSql.match(/LIMIT\s+(\d+)/i);
-    if (limitMatch) limitStr = limitMatch[1];
-    
+
+    const whereMatch = masked.match(/WHERE\s+(.+?)(?:\s+GROUP\s+BY|\s+ORDER\s+BY|\s+LIMIT|$)/i);
+    const groupByMatch = masked.match(/GROUP\s+BY\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|$)/i);
+    const orderByMatch = masked.match(/ORDER\s+BY\s+(.+?)(?:\s+LIMIT|$)/i);
+    const limitMatch = masked.match(/LIMIT\s+(\d+)/i);
+
+    const whereStr = whereMatch ? whereMatch[1] : "";
+    const groupByStr = groupByMatch ? groupByMatch[1] : "";
+    const orderByStr = orderByMatch ? orderByMatch[1] : "";
+
     // 1. Filtering (WHERE)
-    let filtered = [...data];
+    let filtered = data;
     if (whereStr) {
-      filtered = filtered.filter(row => evaluateWhereClause(whereStr, row));
+      const groups = parseWhere(whereStr, literals);
+      const refCols = groups.flat().map((c) => c.col);
+      assertKnownColumns(refCols, dataColumns);
+      filtered = data.filter((row) => evaluateWhere(groups, row));
     }
-    
-    // 2. Parsing select expressions and aggregates
-    const selectItems = parseSelectItems(selectStr);
-    const hasAggregates = selectItems.some(item => item.isAggregate);
-    
+
+    // 2. Parse SELECT items
+    const selectItems = parseSelectItems(selectStr, literals);
+    const hasAggregates = selectItems.some((item) => item.isAggregate);
+    const isStar = selectStr.trim() === "*";
+
+    // Validate referenced (non-aggregate, non-star) columns up front.
+    if (!isStar) {
+      const refCols = selectItems
+        .filter((i) => !i.isAggregate && i.field)
+        .map((i) => i.field!);
+      assertKnownColumns(refCols, dataColumns);
+    }
+
+    const groupKeys = groupByStr
+      ? groupByStr.split(",").map((s) => stripQuotes(s.trim()))
+      : [];
+    assertKnownColumns(groupKeys, dataColumns);
+
     let resultRows: Row[] = [];
     let outputColumns: string[] = [];
-    
+
     if (groupByStr || hasAggregates) {
-      // 3. Grouping (GROUP BY)
-      const groupKeys = groupByStr ? groupByStr.split(",").map(s => s.trim()) : [];
-      
+      // 3. Grouping
       const groups = new Map<string, Row[]>();
-      filtered.forEach(row => {
-        const keyObj: Record<string, any> = {};
-        groupKeys.forEach(k => {
-          keyObj[k] = row[k];
-        });
-        const keyStr = JSON.stringify(keyObj);
-        const list = groups.get(keyStr) || [];
-        list.push(row);
-        groups.set(keyStr, list);
-      });
-      
-      // If no group keys but aggregates exist, treat entire table as one group
-      if (groupKeys.length === 0 && groups.size === 0 && filtered.length > 0) {
+      if (groupKeys.length === 0) {
+        // Whole table is one group (pure aggregate query).
         groups.set("{}", filtered);
-      } else if (filtered.length === 0) {
-        groups.set("{}", []);
+      } else {
+        filtered.forEach((row) => {
+          const keyObj: Record<string, CellValue> = {};
+          groupKeys.forEach((k) => {
+            keyObj[k] = row[k];
+          });
+          const keyStr = JSON.stringify(keyObj);
+          const list = groups.get(keyStr) || [];
+          list.push(row);
+          groups.set(keyStr, list);
+        });
       }
-      
+
       groups.forEach((groupRows, keyStr) => {
-        const groupKeyValues = JSON.parse(keyStr);
-        const resultRow: Row = { ...groupKeyValues };
-        
-        selectItems.forEach(item => {
+        const groupKeyValues: Record<string, CellValue> = keyStr === "{}" ? {} : JSON.parse(keyStr);
+        const resultRow: Row = {};
+
+        selectItems.forEach((item) => {
           if (item.isAggregate) {
-            resultRow[item.alias] = calculateAggregate(item.aggregateFunc!, item.field!, groupRows);
-          } else if (groupKeyValues[item.field!] !== undefined) {
+            resultRow[item.alias] = calculateAggregate(item, groupRows);
+          } else if (item.field! in groupKeyValues) {
             resultRow[item.alias] = groupKeyValues[item.field!];
           } else {
             resultRow[item.alias] = groupRows[0] ? groupRows[0][item.field!] : null;
           }
         });
-        
+
         resultRows.push(resultRow);
       });
-      
-      outputColumns = selectItems.map(item => item.alias);
+
+      outputColumns = selectItems.map((item) => item.alias);
+    } else if (isStar) {
+      outputColumns = dataColumns.length > 0 ? dataColumns : ["*"];
+      resultRows = filtered.map((row) => ({ ...row }));
     } else {
-      // Plain projection
-      if (selectStr.trim() === "*") {
-        if (data.length > 0) {
-          outputColumns = Object.keys(data[0]);
-        } else {
-          outputColumns = ["*"];
-        }
-        resultRows = filtered;
-      } else {
-        outputColumns = selectItems.map(item => item.alias);
-        resultRows = filtered.map(row => {
-          const projected: Row = {};
-          selectItems.forEach(item => {
-            projected[item.alias] = row[item.field!];
-          });
-          return projected;
+      outputColumns = selectItems.map((item) => item.alias);
+      resultRows = filtered.map((row) => {
+        const projected: Row = {};
+        selectItems.forEach((item) => {
+          projected[item.alias] = row[item.field!];
         });
-      }
-    }
-    
-    // 4. Sorting (ORDER BY)
-    if (orderByStr) {
-      const orderItems = orderByStr.split(",").map(s => {
-        const parts = s.trim().split(" ");
-        return {
-          field: parts[0],
-          desc: parts[1] && parts[1].toUpperCase() === "DESC"
-        };
+        return projected;
       });
-      
+    }
+
+    // 4. Sorting (ORDER BY) — supports name, alias, and ordinal (ORDER BY 2).
+    if (orderByStr) {
+      const orderItems = orderByStr.split(",").map((s) => {
+        const parts = s.trim().split(/\s+/);
+        const rawField = stripQuotes(parts[0]);
+        const field = /^\d+$/.test(rawField)
+          ? outputColumns[Number(rawField) - 1] ?? rawField
+          : rawField;
+        return { field, desc: !!parts[1] && parts[1].toUpperCase() === "DESC" };
+      });
+
       resultRows.sort((a, b) => {
         for (const item of orderItems) {
           const valA = a[item.field];
@@ -145,54 +147,86 @@ export function executeSql(sql: string, data: Row[]): SqlResult {
           if (valA === valB) continue;
           if (valA === null || valA === undefined) return 1;
           if (valB === null || valB === undefined) return -1;
-          
-          const compare = valA < valB ? -1 : 1;
+
+          const numA = parseNumeric(valA);
+          const numB = parseNumeric(valB);
+          let compare: number;
+          if (numA !== null && numB !== null) {
+            compare = numA < numB ? -1 : 1;
+          } else {
+            compare = String(valA) < String(valB) ? -1 : 1;
+          }
           return item.desc ? -compare : compare;
         }
         return 0;
       });
     }
-    
-    // 5. Limit (LIMIT)
-    if (limitStr) {
-      const limit = parseInt(limitStr, 10);
-      resultRows = resultRows.slice(0, limit);
+
+    // 5. Limit
+    if (limitMatch) {
+      resultRows = resultRows.slice(0, parseInt(limitMatch[1], 10));
     }
-    
-    return {
-      columns: outputColumns,
-      rows: resultRows,
-      executionTimeMs: Math.max(0.1, parseFloat((performance.now() - start).toFixed(2)))
-    };
-    
-  } catch (err: any) {
+
+    return { columns: outputColumns, rows: resultRows, executionTimeMs: timeMs() };
+  } catch (err) {
     return {
       columns: [],
       rows: [],
-      error: err.message || "Failed to execute query",
-      executionTimeMs: Math.max(0.1, parseFloat((performance.now() - start).toFixed(2)))
+      error: err instanceof Error ? err.message : "Failed to execute query",
+      executionTimeMs: timeMs(),
     };
   }
 }
 
+/* ─────────────────────────── literal masking ─────────────────────────── */
+
+const MASK = "";
+
+function maskLiterals(sql: string): { masked: string; literals: string[] } {
+  const literals: string[] = [];
+  const masked = sql.replace(/'([^']*)'|"([^"]*)"/g, (m) => {
+    const i = literals.length;
+    literals.push(m);
+    return `${MASK}${i}${MASK}`;
+  });
+  return { masked, literals };
+}
+
+function unmask(s: string, literals: string[]): string {
+  return s.replace(new RegExp(`${MASK}(\\d+)${MASK}`, "g"), (_, i) => literals[Number(i)] ?? "");
+}
+
+function stripQuotes(s: string): string {
+  return s.replace(/^['"`]|['"`]$/g, "");
+}
+
+function assertKnownColumns(refs: string[], dataColumns: string[]) {
+  if (dataColumns.length === 0) return;
+  for (const col of refs) {
+    if (col && col !== "*" && !dataColumns.includes(col)) {
+      throw new Error(`Unknown column: ${col}`);
+    }
+  }
+}
+
+/* ─────────────────────────── SELECT parsing ─────────────────────────── */
+
 interface SelectItem {
-  expression: string;
   alias: string;
   isAggregate: boolean;
   aggregateFunc?: "COUNT" | "SUM" | "AVG" | "MIN" | "MAX";
+  distinct?: boolean;
   field?: string;
 }
 
-function parseSelectItems(selectStr: string): SelectItem[] {
+function parseSelectItems(selectStr: string, literals: string[]): SelectItem[] {
   const parts: string[] = [];
   let current = "";
   let parenDepth = 0;
-  
-  for (let i = 0; i < selectStr.length; i++) {
-    const char = selectStr[i];
+
+  for (const char of selectStr) {
     if (char === "(") parenDepth++;
     if (char === ")") parenDepth--;
-    
     if (char === "," && parenDepth === 0) {
       parts.push(current.trim());
       current = "";
@@ -201,130 +235,135 @@ function parseSelectItems(selectStr: string): SelectItem[] {
     }
   }
   if (current.trim()) parts.push(current.trim());
-  
-  return parts.map(part => {
-    // Check for alias (AS)
-    const asMatch = part.match(/(.+?)\s+AS\s+(.+)/i);
-    let expression = part;
-    let alias = part;
-    if (asMatch) {
-      expression = asMatch[1].trim();
-      alias = asMatch[2].trim().replace(/['"`]/g, "");
-    }
-    
-    // Check for aggregates
-    const aggMatch = expression.match(/^(COUNT|SUM|AVG|MIN|MAX)\((.+?)\)$/i);
+
+  return parts.map((part) => {
+    const asMatch = part.match(/^(.+?)\s+AS\s+(.+)$/i);
+    const expression = asMatch ? asMatch[1].trim() : part;
+    const explicitAlias = asMatch ? stripQuotes(unmask(asMatch[2].trim(), literals)) : null;
+
+    const aggMatch = expression.match(/^(COUNT|SUM|AVG|MIN|MAX)\(\s*(DISTINCT\s+)?(.+?)\s*\)$/i);
     if (aggMatch) {
-      const func = aggMatch[1].toUpperCase() as any;
-      const field = aggMatch[2].trim().replace(/['"`]/g, "");
+      const func = aggMatch[1].toUpperCase() as SelectItem["aggregateFunc"];
+      const distinct = !!aggMatch[2];
+      const field = stripQuotes(aggMatch[3].trim());
       return {
-        expression,
-        alias: asMatch ? alias : expression,
+        alias: explicitAlias ?? expression,
         isAggregate: true,
         aggregateFunc: func,
-        field: field === "*" ? "id" : field
+        distinct,
+        field,
       };
     }
-    
-    return {
-      expression,
-      alias: alias.replace(/['"`]/g, ""),
-      isAggregate: false,
-      field: expression.replace(/['"`]/g, "")
-    };
+
+    const field = stripQuotes(expression);
+    return { alias: explicitAlias ?? field, isAggregate: false, field };
   });
 }
 
-function evaluateWhereClause(whereStr: string, row: Row): boolean {
-  // Simple evaluation of conditions combined with AND / OR
-  // Supports basic operators: =, !=, <, >, <=, >=, LIKE, IS NULL, IS NOT NULL
-  
-  // Normalize simple queries
-  const tokens = whereStr.split(/\s+AND\s+/i);
-  return tokens.every(token => {
-    const isLike = /\s+LIKE\s+/i.test(token);
-    const isNull = /\s+IS\s+NULL/i.test(token);
-    const isNotNull = /\s+IS\s+NOT\s+NULL/i.test(token);
-    
-    if (isNull) {
-      const col = token.replace(/\s+IS\s+NULL/i, "").trim().replace(/['"`]/g, "");
-      return row[col] === null || row[col] === undefined;
-    }
-    if (isNotNull) {
-      const col = token.replace(/\s+IS\s+NOT\s+NULL/i, "").trim().replace(/['"`]/g, "");
-      return row[col] !== null && row[col] !== undefined;
-    }
-    
-    let op = "=";
-    let parts: string[] = [];
-    
-    if (token.includes("!=")) { op = "!="; parts = token.split("!="); }
-    else if (token.includes("<=")) { op = "<="; parts = token.split("<="); }
-    else if (token.includes(">=")) { op = ">="; parts = token.split(">="); }
-    else if (token.includes("<")) { op = "<"; parts = token.split("<"); }
-    else if (token.includes(">")) { op = ">"; parts = token.split(">"); }
-    else if (token.includes("=")) { op = "="; parts = token.split("="); }
-    else if (isLike) { op = "LIKE"; parts = token.split(/\s+LIKE\s+/i); }
-    else {
-      return true; // Unrecognized condition passes
-    }
-    
-    const col = parts[0].trim().replace(/['"`]/g, "");
-    const valStr = parts[1].trim().replace(/^['"`]|['"`]$/g, "");
-    const cell = row[col];
-    
-    if (op === "LIKE") {
-      const regexStr = "^" + valStr.replace(/%/g, ".*") + "$";
-      const regex = new RegExp(regexStr, "i");
-      return regex.test(String(cell ?? ""));
-    }
-    
-    const cellNum = Number(cell);
-    const valNum = Number(valStr);
-    const compareNumbers = !isNaN(cellNum) && !isNaN(valNum) && cell !== null && cell !== "";
-    
-    const valA = compareNumbers ? cellNum : String(cell ?? "").toLowerCase();
-    const valB = compareNumbers ? valNum : valStr.toLowerCase();
-    
-    switch (op) {
-      case "=": return valA === valB;
-      case "!=": return valA !== valB;
-      case "<": return valA < valB;
-      case ">": return valA > valB;
-      case "<=": return valA <= valB;
-      case ">=": return valA >= valB;
-      default: return true;
-    }
-  });
+/* ─────────────────────────── WHERE parsing ─────────────────────────── */
+
+interface Condition {
+  col: string;
+  op: "=" | "!=" | "<" | ">" | "<=" | ">=" | "LIKE" | "IS NULL" | "IS NOT NULL";
+  value: string; // already unmasked & unquoted (empty for null checks)
 }
 
-function calculateAggregate(
-  func: "COUNT" | "SUM" | "AVG" | "MIN" | "MAX",
-  field: string,
-  rows: Row[]
-): CellValue {
-  if (func === "COUNT") {
-    if (field === "id" || field === "*") return rows.length;
-    return rows.filter(r => r[field] !== null && r[field] !== undefined).length;
+/** Parse into OR groups; each group is an AND list of conditions. A row passes
+ *  when any group fully matches. OR has lower precedence than AND. */
+function parseWhere(whereStr: string, literals: string[]): Condition[][] {
+  return whereStr
+    .split(/\s+OR\s+/i)
+    .map((group) =>
+      group
+        .split(/\s+AND\s+/i)
+        .map((token) => parseCondition(token.trim(), literals))
+        .filter((c): c is Condition => c !== null)
+    )
+    .filter((group) => group.length > 0);
+}
+
+function parseCondition(token: string, literals: string[]): Condition | null {
+  if (/\s+IS\s+NOT\s+NULL$/i.test(token)) {
+    return { col: stripQuotes(token.replace(/\s+IS\s+NOT\s+NULL$/i, "").trim()), op: "IS NOT NULL", value: "" };
   }
-  
+  if (/\s+IS\s+NULL$/i.test(token)) {
+    return { col: stripQuotes(token.replace(/\s+IS\s+NULL$/i, "").trim()), op: "IS NULL", value: "" };
+  }
+
+  const ops: Condition["op"][] = ["!=", "<=", ">=", "<", ">", "="];
+  for (const op of ops) {
+    const idx = token.indexOf(op);
+    if (idx !== -1) {
+      const col = stripQuotes(token.slice(0, idx).trim());
+      const value = stripQuotes(unmask(token.slice(idx + op.length).trim(), literals));
+      return { col, op, value };
+    }
+  }
+
+  if (/\s+LIKE\s+/i.test(token)) {
+    const [colPart, valPart] = token.split(/\s+LIKE\s+/i);
+    return { col: stripQuotes(colPart.trim()), op: "LIKE", value: stripQuotes(unmask(valPart.trim(), literals)) };
+  }
+
+  return null; // unrecognised token — ignored rather than silently passing rows
+}
+
+function evaluateWhere(groups: Condition[][], row: Row): boolean {
+  return groups.some((group) => group.every((cond) => evaluateCondition(cond, row)));
+}
+
+function evaluateCondition(cond: Condition, row: Row): boolean {
+  const cell = row[cond.col];
+
+  if (cond.op === "IS NULL") return cell === null || cell === undefined;
+  if (cond.op === "IS NOT NULL") return cell !== null && cell !== undefined;
+
+  if (cond.op === "LIKE") {
+    const regexStr = "^" + cond.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".") + "$";
+    return new RegExp(regexStr, "i").test(String(cell ?? ""));
+  }
+
+  const cellNum = parseNumeric(cell);
+  const valNum = parseNumeric(cond.value);
+  const numeric = cellNum !== null && valNum !== null;
+
+  const a: number | string = numeric ? cellNum : String(cell ?? "").toLowerCase();
+  const b: number | string = numeric ? valNum : cond.value.toLowerCase();
+
+  switch (cond.op) {
+    case "=": return a === b;
+    case "!=": return a !== b;
+    case "<": return a < b;
+    case ">": return a > b;
+    case "<=": return a <= b;
+    case ">=": return a >= b;
+    default: return false;
+  }
+}
+
+/* ─────────────────────────── aggregates ─────────────────────────── */
+
+function calculateAggregate(item: SelectItem, rows: Row[]): CellValue {
+  const { aggregateFunc: func, field, distinct } = item;
+
+  if (func === "COUNT") {
+    if (field === "*") return rows.length;
+    let present = rows.map((r) => r[field!]).filter((v) => v !== null && v !== undefined);
+    if (distinct) present = Array.from(new Set(present));
+    return present.length;
+  }
+
   const values = rows
-    .map(r => r[field])
-    .filter((v): v is number => typeof v === "number" || (typeof v === "string" && !isNaN(Number(v))))
-    .map(v => Number(v));
-    
+    .map((r) => parseNumeric(r[field!]))
+    .filter((n): n is number => n !== null);
+
   if (values.length === 0) return null;
-  
+
   switch (func) {
-    case "SUM":
-      return values.reduce((sum, v) => sum + v, 0);
-    case "AVG":
-      return values.reduce((sum, v) => sum + v, 0) / values.length;
-    case "MIN":
-      return Math.min(...values);
-    case "MAX":
-      return Math.max(...values);
-    default:
-      return null;
+    case "SUM": return values.reduce((s, v) => s + v, 0);
+    case "AVG": return values.reduce((s, v) => s + v, 0) / values.length;
+    case "MIN": return Math.min(...values);
+    case "MAX": return Math.max(...values);
+    default: return null;
   }
 }

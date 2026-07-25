@@ -19,6 +19,10 @@ import {
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { UploadDropzone } from "@/components/upload-dropzone";
+import { TruncationBanner } from "@/components/truncation-banner";
+import { parseNumeric } from "@/lib/number";
+import { chatWithData } from "@/lib/ai";
+import { queryAxiom } from "@/lib/axiom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -30,7 +34,11 @@ export default function WorkspacePage() {
   const activeId = useNexora((s) => s.activeId);
   const chatHistory = useNexora((s) => s.chatHistory);
   const addChatMessage = useNexora((s) => s.addChatMessage);
+  const pushChatMessage = useNexora((s) => s.pushChatMessage);
+  const settings = useNexora((s) => s.settings);
+  const notify = useNexora((s) => s.notify);
   const clearChat = useNexora((s) => s.clearChat);
+  const [aiThinking, setAiThinking] = useState(false);
 
   const activeDataset = datasets.find((d) => d.id === activeId) || null;
 
@@ -129,10 +137,38 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleSendChat = (text: string) => {
-    if (!text.trim()) return;
-    addChatMessage(activeDataset.id, text.trim());
+  const handleSendChat = async (text: string) => {
+    if (!text.trim() || aiThinking) return;
+    const question = text.trim();
     setChatInput("");
+
+    // Without an API key, the local rule-based engine answers instantly.
+    if (!settings.geminiApiKey) {
+      addChatMessage(activeDataset.id, question);
+      return;
+    }
+
+    pushChatMessage(activeDataset.id, { role: "user", text: question });
+    setAiThinking(true);
+    try {
+      const recent = (chatHistory[activeDataset.id] || [])
+        .filter((m) => m.role !== "system")
+        .slice(-6)
+        .map((m) => ({ role: m.role, text: m.text }));
+      const answer = await chatWithData(settings.geminiApiKey, activeDataset, question, recent);
+      pushChatMessage(activeDataset.id, { role: "axiom", text: answer });
+    } catch (err) {
+      notify("error", "AI chat failed", err instanceof Error ? err.message : "Request failed");
+      const fallback = queryAxiom(question, activeDataset);
+      pushChatMessage(activeDataset.id, {
+        role: "axiom",
+        text: `(AI unavailable — answered by the local engine) ${fallback.text}`,
+        table: fallback.table,
+        suggestions: fallback.suggestions,
+      });
+    } finally {
+      setAiThinking(false);
+    }
   };
 
   const handleRunSQLInLab = (sqlQuery: string) => {
@@ -145,6 +181,32 @@ export default function WorkspacePage() {
   // Get chart topValues
   const currentProfile = activeDataset.profiles?.find((p) => p.name === selectedColumn);
   const chartData = currentProfile?.topValues || [];
+  const isNumericColumn = currentProfile?.type === "number";
+
+  // Build an equal-width histogram for numeric columns (10 bins).
+  const histogram = (() => {
+    if (!isNumericColumn || activeTab !== "chart") return [];
+    const values = activeDataset.rows
+      .map((r) => parseNumeric(r[selectedColumn]))
+      .filter((n): n is number => n !== null);
+    if (values.length === 0) return [];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    if (min === max) return [{ label: String(min), count: values.length }];
+    const binCount = 10;
+    const width = (max - min) / binCount;
+    const bins = Array.from({ length: binCount }, (_, i) => ({
+      lo: min + i * width,
+      hi: min + (i + 1) * width,
+      count: 0,
+    }));
+    values.forEach((v) => {
+      const idx = Math.min(binCount - 1, Math.floor((v - min) / width));
+      bins[idx].count++;
+    });
+    const fmt = (n: number) => (Math.abs(n) >= 1000 ? Math.round(n).toLocaleString() : Number(n.toFixed(1)).toString());
+    return bins.map((b) => ({ label: `${fmt(b.lo)}–${fmt(b.hi)}`, count: b.count }));
+  })();
 
   // Circle Gauge Metrics
   const healthScore = activeDataset.health?.overall || 85;
@@ -171,6 +233,8 @@ export default function WorkspacePage() {
       {/* LEFT: Data Exploration Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top_left,rgba(24,28,41,0.5),transparent_60%)] p-6 space-y-6 overflow-hidden">
         
+        {activeDataset.truncated && <TruncationBanner rows={activeDataset.rows.length} />}
+
         {/* TOP BENTO BAR: High-density Metadata Widget */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-surface-container-low/40 border border-white/5 backdrop-blur-md rounded-xl p-4 shadow-xl shrink-0">
           <div className="flex items-center gap-3">
@@ -224,7 +288,7 @@ export default function WorkspacePage() {
           <div className="flex bg-surface-container-low/60 rounded-xl p-1 border border-white/5 backdrop-blur-sm shadow-[inset_0_1px_rgba(255,255,255,0.03)] relative overflow-hidden">
             <button
               onClick={() => setActiveTab("table")}
-              className={`relative z-10 flex items-center gap-2 px-4 py-2 rounded-lg text-body-md font-semibold transition-all duration-200 cursor-pointer active:scale-95 ${
+              className={`relative z-10 flex items-center gap-2 px-4 py-2 rounded-lg text-body-md font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-200 cursor-pointer active:scale-95 ${
                 activeTab === "table" ? "text-black" : "text-on-surface-variant hover:text-white"
               }`}
             >
@@ -240,7 +304,7 @@ export default function WorkspacePage() {
             </button>
             <button
               onClick={() => setActiveTab("chart")}
-              className={`relative z-10 flex items-center gap-2 px-4 py-2 rounded-lg text-body-md font-semibold transition-all duration-200 cursor-pointer active:scale-95 ${
+              className={`relative z-10 flex items-center gap-2 px-4 py-2 rounded-lg text-body-md font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-200 cursor-pointer active:scale-95 ${
                 activeTab === "chart" ? "text-black" : "text-on-surface-variant hover:text-white"
               }`}
             >
@@ -266,7 +330,7 @@ export default function WorkspacePage() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full bg-surface-container-low/60 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-white placeholder:text-zinc-500 text-body-md focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-all shadow-inner"
+                className="w-full bg-surface-container-low/60 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-white placeholder:text-zinc-500 text-body-md focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-[color,background-color,border-color,box-shadow,transform,opacity] shadow-inner"
                 placeholder="Search raw rows..."
               />
             </div>
@@ -286,7 +350,7 @@ export default function WorkspacePage() {
                 transition={{ duration: 0.22, ease: "easeInOut" }}
                 className="flex-1 flex flex-col min-h-0"
               >
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto select-text">
                   <table className="w-full text-left border-collapse text-body-md">
                     <thead>
                       <tr className="border-b border-white/5 bg-surface-container-low/80 backdrop-blur-md sticky top-0 z-10">
@@ -353,7 +417,7 @@ export default function WorkspacePage() {
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
                       aria-label="Previous data page"
-                      className="p-1.5 rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-400 hover:text-white hover:border-primary/20 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all active:scale-90"
+                      className="p-1.5 rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-400 hover:text-white hover:border-primary/20 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-90"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -364,7 +428,7 @@ export default function WorkspacePage() {
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
                       aria-label="Next data page"
-                      className="p-1.5 rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-400 hover:text-white hover:border-primary/20 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all active:scale-90"
+                      className="p-1.5 rounded-lg border border-white/5 bg-zinc-900/50 text-zinc-400 hover:text-white hover:border-primary/20 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-90"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -384,10 +448,12 @@ export default function WorkspacePage() {
                 <div className="flex items-center justify-between border-b border-white/5 pb-4">
                   <div>
                     <h4 className="font-headline-md text-[16px] font-semibold text-white">
-                      Categorical Distributions
+                      {isNumericColumn ? "Numeric Distribution" : "Categorical Distribution"}
                     </h4>
                     <p className="text-xs text-zinc-500 mt-0.5">
-                      Visualize top occurrences for text columns.
+                      {isNumericColumn
+                        ? "Value spread across 10 equal-width bins."
+                        : "Top occurrences for text and category columns."}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 bg-zinc-900/40 border border-white/5 rounded-lg px-3 py-1.5">
@@ -406,7 +472,58 @@ export default function WorkspacePage() {
                   </div>
                 </div>
 
-                {chartData.length === 0 ? (
+                {isNumericColumn ? (
+                  histogram.length === 0 ? (
+                    <div className="flex-1 flex flex-col justify-center items-center text-center">
+                      <BarChart3 className="w-10 h-10 text-zinc-600 mb-2" />
+                      <span className="text-body-md text-zinc-500">No numeric values in this column.</span>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full space-y-4 overflow-y-auto">
+                      {/* Five-number summary */}
+                      <div className="grid grid-cols-5 gap-2 text-center font-mono">
+                        {[
+                          ["min", currentProfile?.min],
+                          ["p25", currentProfile?.p25],
+                          ["median", currentProfile?.median],
+                          ["p75", currentProfile?.p75],
+                          ["max", currentProfile?.max],
+                        ].map(([label, val]) => (
+                          <div key={label as string} className="bg-zinc-900/40 border border-white/5 rounded-lg py-2">
+                            <span className="block text-[9px] uppercase tracking-wider text-zinc-500">{label}</span>
+                            <span className="block text-[12px] text-white font-bold tabular-nums">{val ?? "—"}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {(currentProfile?.outlierCount ?? 0) > 0 && (
+                        <p className="text-[11px] text-amber-400/90 font-mono text-center">
+                          {currentProfile!.outlierCount} outlier(s) beyond 1.5×IQR · σ (sample) = {currentProfile?.std}
+                        </p>
+                      )}
+                      {/* Histogram bins */}
+                      <div className="space-y-1.5">
+                        {histogram.map((bin, idx) => {
+                          const maxVal = Math.max(...histogram.map((d) => d.count)) || 1;
+                          const percent = Math.round((bin.count / maxVal) * 100);
+                          return (
+                            <div key={idx} className="flex items-center gap-3 text-[11px] font-mono">
+                              <span className="w-28 shrink-0 text-right text-zinc-400 tabular-nums">{bin.label}</span>
+                              <div className="flex-1 bg-zinc-900/60 h-5 rounded-md overflow-hidden relative border border-white/5">
+                                <motion.div
+                                  className="h-full bg-gradient-to-r from-primary/10 to-primary/25 border-r-2 border-primary"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${percent}%` }}
+                                  transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                                />
+                              </div>
+                              <span className="w-10 shrink-0 text-primary font-bold tabular-nums">{bin.count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )
+                ) : chartData.length === 0 ? (
                   <div className="flex-1 flex flex-col justify-center items-center text-center">
                     <BarChart3 className="w-10 h-10 text-zinc-600 mb-2" />
                     <span className="text-body-md text-zinc-500">No top values available for this column.</span>
@@ -456,7 +573,7 @@ export default function WorkspacePage() {
           </div>
           <button
             onClick={() => clearChat(activeDataset.id)}
-            className="p-1.5 rounded-lg border border-white/5 text-zinc-500 hover:text-error hover:border-error/20 transition-all cursor-pointer active:scale-90"
+            className="p-1.5 rounded-lg border border-white/5 text-zinc-500 hover:text-error hover:border-error/20 transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer active:scale-90"
             title="Clear Chat History"
           >
             <Trash2 className="w-4 h-4" />
@@ -525,7 +642,7 @@ export default function WorkspacePage() {
 
                     {/* Render Table from Axiom Response */}
                     {!isUser && msg.table && (
-                      <div className="mt-3 border border-white/5 rounded-xl overflow-hidden bg-black/40 text-[11px] font-mono text-zinc-300 shadow-inner">
+                      <div className="mt-3 border border-white/5 rounded-xl overflow-hidden bg-black/40 text-[11px] font-mono text-zinc-300 shadow-inner select-text">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-zinc-900/40 border-b border-white/5">
@@ -563,7 +680,7 @@ export default function WorkspacePage() {
                         <button
                           key={idx}
                           onClick={() => handleSendChat(chip)}
-                          className="px-3 py-1.5 bg-zinc-900/60 hover:bg-zinc-900 border border-white/5 hover:border-primary/30 text-[11px] text-primary rounded-full transition-all cursor-pointer text-left shadow-sm active:scale-95 hover:-translate-y-[1px]"
+                          className="px-3 py-1.5 bg-zinc-900/60 hover:bg-zinc-900 border border-white/5 hover:border-primary/30 text-[11px] text-primary rounded-full transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer text-left shadow-sm active:scale-95 hover:-translate-y-[1px]"
                         >
                           {chip}
                         </button>
@@ -584,7 +701,7 @@ export default function WorkspacePage() {
               e.preventDefault();
               handleSendChat(chatInput);
             }}
-            className="flex items-center gap-2 bg-zinc-900/50 border border-white/5 rounded-xl p-1.5 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/25 transition-all shadow-inner"
+            className="flex items-center gap-2 bg-zinc-900/50 border border-white/5 rounded-xl p-1.5 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/25 transition-[color,background-color,border-color,box-shadow,transform,opacity] shadow-inner"
           >
             <input
               type="text"
@@ -597,7 +714,7 @@ export default function WorkspacePage() {
               type="submit"
               disabled={!chatInput.trim()}
               aria-label="Send message to NLP analyst"
-              className="p-2 bg-primary disabled:bg-zinc-800 text-on-primary disabled:text-zinc-500 rounded-lg transition-all cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
+              className="p-2 bg-primary disabled:bg-zinc-800 text-on-primary disabled:text-zinc-500 rounded-lg transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer active:scale-95 flex items-center justify-center shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>

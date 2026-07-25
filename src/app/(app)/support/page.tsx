@@ -9,13 +9,19 @@ import {
   Search, 
   Check, 
   ExternalLink, 
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { useMounted } from "@/lib/use-mounted";
+import { useNexora } from "@/lib/store";
 import { motion } from "framer-motion";
 
 export default function SupportPage() {
   const mounted = useMounted();
+  
+  const tickets = useNexora((s) => s.tickets);
+  const addTicket = useNexora((s) => s.addTicket);
+  const removeTicket = useNexora((s) => s.removeTicket);
 
   // Search FAQ
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,26 +35,6 @@ export default function SupportPage() {
   });
 
   const [formState, setFormState] = useState<"idle" | "loading" | "success">("idle");
-
-  // Mock Tickets list
-  const [tickets, setTickets] = useState([
-    {
-      id: "TK-9402",
-      title: "SQL parser failure on OUTER JOIN aggregation",
-      category: "SQL Sandbox",
-      severity: "high",
-      status: "Investigating",
-      date: "2026-06-12"
-    },
-    {
-      id: "TK-8192",
-      title: "RAM cache overflow on large 120MB CSV drops",
-      category: "Cache Engine",
-      severity: "medium",
-      status: "Resolved",
-      date: "2026-06-10"
-    }
-  ]);
 
   const faqs = [
     {
@@ -81,20 +67,26 @@ export default function SupportPage() {
     setTimeout(() => {
       setFormState("success");
       
-      const newTk = {
-        id: `TK-${Math.floor(1000 + Math.random() * 9000)}`,
-        title: ticket.title,
-        category: ticket.category === "pipeline" ? "Data Pipeline" : ticket.category === "ocr" ? "OCR Laser Scanning" : "General Query",
-        severity: ticket.severity,
-        status: "Open",
-        date: new Date().toISOString().split("T")[0]
-      };
+      const categoryLabel = 
+        ticket.category === "pipeline" 
+          ? "Data Pipeline" 
+          : ticket.category === "ocr" 
+          ? "OCR Laser Scanning" 
+          : ticket.category === "sql"
+          ? "SQL Sandbox"
+          : "General Query";
 
-      setTickets([newTk, ...tickets]);
+      addTicket({
+        title: ticket.title,
+        description: ticket.description,
+        category: categoryLabel,
+        severity: ticket.severity,
+      });
+
       setTicket({ category: "pipeline", title: "", description: "", severity: "low" });
 
-      setTimeout(() => setFormState("idle"), 2500);
-    }, 1500);
+      setTimeout(() => setFormState("idle"), 1500);
+    }, 600);
   };
 
   return (
@@ -128,7 +120,7 @@ export default function SupportPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search knowledge base articles..."
-              className="w-full bg-zinc-900/60 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-all placeholder:text-zinc-600 shadow-inner"
+              className="w-full bg-zinc-900/60 border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-white text-xs font-mono focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-[color,background-color,border-color,box-shadow,transform,opacity] placeholder:text-zinc-600 shadow-inner"
             />
           </div>
 
@@ -169,7 +161,7 @@ export default function SupportPage() {
                 <span className="text-xs text-zinc-500">Access detailed API guides and offline SDK reference sheets.</span>
               </div>
             </div>
-            <a href="#" className="p-2.5 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-xl text-primary transition-all cursor-pointer active:scale-95">
+            <a href="#" className="p-2.5 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-xl text-primary transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer active:scale-95">
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>
@@ -193,7 +185,7 @@ export default function SupportPage() {
                 <select
                   value={ticket.category}
                   onChange={(e) => setTicket({ ...ticket, category: e.target.value })}
-                  className="bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-all text-xs font-mono cursor-pointer shadow-inner"
+                  className="bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-[color,background-color,border-color,box-shadow,transform,opacity] text-xs font-mono cursor-pointer shadow-inner"
                 >
                   <option value="pipeline">Data Pipeline</option>
                   <option value="ocr">OCR Scan</option>
@@ -212,7 +204,7 @@ export default function SupportPage() {
                   placeholder="e.g. Joiner crashes on full join"
                   value={ticket.title}
                   onChange={(e) => setTicket({ ...ticket, title: e.target.value })}
-                  className="bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-all text-xs font-mono shadow-inner"
+                  className="bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-[color,background-color,border-color,box-shadow,transform,opacity] text-xs font-mono shadow-inner"
                 />
               </div>
 
@@ -226,7 +218,7 @@ export default function SupportPage() {
                   placeholder="Describe the anomalies or steps to reproduce the crash..."
                   value={ticket.description}
                   onChange={(e) => setTicket({ ...ticket, description: e.target.value })}
-                  className="bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-all text-xs font-mono resize-none shadow-inner"
+                  className="bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/25 transition-[color,background-color,border-color,box-shadow,transform,opacity] text-xs font-mono resize-none shadow-inner"
                 />
               </div>
 
@@ -240,7 +232,7 @@ export default function SupportPage() {
                       key={sev}
                       type="button"
                       onClick={() => setTicket({ ...ticket, severity: sev })}
-                      className={`py-2 rounded-xl border text-[9px] font-mono uppercase tracking-wider font-bold cursor-pointer transition-all ${
+                      className={`py-2 rounded-xl border text-[9px] font-mono uppercase tracking-wider font-bold cursor-pointer transition-[color,background-color,border-color,box-shadow,transform,opacity] ${
                         ticket.severity === sev
                           ? sev === "high"
                             ? "bg-error-container/20 border-error text-error"
@@ -257,7 +249,7 @@ export default function SupportPage() {
               <button
                 type="submit"
                 disabled={formState === "loading" || !ticket.title || !ticket.description}
-                className="w-full py-2.5 bg-primary text-black font-mono text-xs uppercase tracking-wider font-bold hover:bg-primary/95 rounded-xl transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+                className="w-full py-2.5 bg-primary text-black font-mono text-xs uppercase tracking-wider font-bold hover:bg-primary/95 rounded-xl transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
               >
                 {formState === "loading" ? (
                   <>
@@ -285,30 +277,48 @@ export default function SupportPage() {
               <History className="w-4 h-4" />
               Ticket Ledger
             </h3>
-            <div className="space-y-2">
-              {tickets.map((t) => (
-                <div key={t.id} className="nexora-card p-4 flex flex-col gap-2 relative group hover:border-white/10 transition-all shadow-md">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[9px] font-mono text-zinc-500 font-bold">
-                      {t.id}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
-                      t.status === "Resolved"
-                        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                        : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
-                    }`}>
-                      {t.status}
-                    </span>
-                  </div>
-                  <h4 className="text-[12px] font-bold text-white leading-snug line-clamp-1">
-                    {t.title}
-                  </h4>
-                  <div className="flex justify-between items-center text-[9px] text-zinc-500 font-mono pt-2 border-t border-white/5 uppercase tracking-wider">
-                    <span>{t.category}</span>
-                    <span>{t.date}</span>
-                  </div>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {tickets.length === 0 ? (
+                <div className="nexora-card p-6 text-center text-zinc-500 text-[11px] font-mono uppercase tracking-wider">
+                  No active tickets
                 </div>
-              ))}
+              ) : (
+                tickets.map((t) => (
+                  <div key={t.id} className="nexora-card p-4 flex flex-col gap-2 relative group hover:border-white/10 transition-[color,background-color,border-color,box-shadow,transform,opacity] shadow-md">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[9px] font-mono text-zinc-500 font-bold">
+                        {t.id}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                          t.status === "Resolved"
+                            ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                            : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
+                        }`}>
+                          {t.status}
+                        </span>
+                        <button
+                          onClick={() => removeTicket(t.id)}
+                          className="text-zinc-600 hover:text-error transition-colors p-0.5 rounded hover:bg-white/5 opacity-0 group-hover:opacity-100 cursor-pointer"
+                          title="Resolve Ticket"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <h4 className="text-[12px] font-bold text-white leading-snug">
+                      {t.title}
+                    </h4>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed font-sans mt-0.5">
+                      {t.description}
+                    </p>
+                    <div className="flex justify-between items-center text-[9px] text-zinc-500 font-mono pt-2 border-t border-white/5 uppercase tracking-wider">
+                      <span>{t.category}</span>
+                      <span>{t.date}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

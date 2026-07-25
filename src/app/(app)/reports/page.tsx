@@ -7,10 +7,15 @@ import {
   Database,
   CheckCircle2,
   FileSpreadsheet,
+  Printer,
+  BarChart3,
 } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { UploadDropzone } from "@/components/upload-dropzone";
+import { AutoDashboard } from "@/components/auto-dashboard";
+import { downloadCsv, toCsv } from "@/lib/csv";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { motion } from "framer-motion";
 
 export default function ReportsPage() {
@@ -19,7 +24,8 @@ export default function ReportsPage() {
   const activeId = useNexora((s) => s.activeId);
 
   const activeDataset = datasets.find((d) => d.id === activeId) || null;
-  const [downloading, setDownloading] = useState<"md" | "csv" | null>(null);
+  const recordExport = useNexora((s) => s.recordExport);
+  const [downloading, setDownloading] = useState<"md" | "csv" | "xlsx" | null>(null);
 
   if (!mounted) {
     return (
@@ -53,7 +59,7 @@ export default function ReportsPage() {
             </p>
           </div>
 
-          <div className="bg-zinc-950/40 border border-dashed border-white/10 hover:border-primary/40 rounded-2xl p-6 transition-all duration-300">
+          <div className="bg-zinc-950/40 border border-dashed border-white/10 hover:border-primary/40 rounded-2xl p-6 transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-300">
             <UploadDropzone />
           </div>
         </div>
@@ -66,14 +72,14 @@ export default function ReportsPage() {
   // Generate Markdown report string
   const generateMarkdownReport = () => {
     const header = `# Nexora OS Analytics Report - ${cleanName}\n\n`;
-    const metadata = `## 📊 Dataset Profile Summary
+    const metadata = `## Dataset Profile Summary
 - **Rows:** ${activeDataset.rows.length}
 - **Columns:** ${activeDataset.columns.length}
 - **Overall Health Score:** ${activeDataset.health.overall}%
 - **Duplicate Rows:** ${activeDataset.duplicateRows}
 - **Anomalies Count:** ${activeDataset.diagnostics.length}\n\n`;
 
-    let columnsTable = `## 📁 Field Profiling Metadata
+    let columnsTable = `## Field Profiling Metadata
 | Column Name | Inferred Type | Completeness | Uniqueness | Missing Values | Validity |
 | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
     activeDataset.profiles?.forEach((col) => {
@@ -81,7 +87,7 @@ export default function ReportsPage() {
     });
     columnsTable += "\n";
 
-    let changelogSec = `## 🛠️ Data Cleaning Audit Trail\n`;
+    let changelogSec = `## Data Cleaning Audit Trail\n`;
     activeDataset.changelog.forEach((log, idx) => {
       changelogSec += `${idx + 1}. ${log}\n`;
     });
@@ -107,32 +113,29 @@ export default function ReportsPage() {
     await new Promise((r) => setTimeout(r, 400));
     const md = generateMarkdownReport();
     triggerDownload(md, `${cleanName}_report.md`, "text/markdown;charset=utf-8;");
+    recordExport({ kind: "md", filename: `${cleanName}_report.md`, datasetId: activeDataset.id, datasetName: activeDataset.name, content: md });
     setDownloading(null);
   };
 
   const handleDownloadCSV = async () => {
     setDownloading("csv");
     await new Promise((r) => setTimeout(r, 400));
-    
-    // Build CSV content
-    const headers = activeDataset.columns.join(",");
-    const body = activeDataset.rows
-      .map((row) =>
-        activeDataset.columns
-          .map((col) => {
-            const val = row[col];
-            if (val === null || val === undefined) return "";
-            const valStr = String(val);
-            return valStr.includes(",") || valStr.includes('"') || valStr.includes("\n")
-              ? `"${valStr.replace(/"/g, '""')}"`
-              : valStr;
-          })
-          .join(",")
-      )
-      .join("\n");
-    const csv = `${headers}\n${body}`;
-    
-    triggerDownload(csv, `${cleanName}_cleaned.csv`, "text/csv;charset=utf-8;");
+    downloadCsv(`${cleanName}_cleaned`, activeDataset.columns, activeDataset.rows);
+    recordExport({
+      kind: "csv",
+      filename: `${cleanName}_cleaned.csv`,
+      datasetId: activeDataset.id,
+      datasetName: activeDataset.name,
+      content: toCsv(activeDataset.columns, activeDataset.rows),
+    });
+    setDownloading(null);
+  };
+
+  const handleDownloadXlsx = async () => {
+    setDownloading("xlsx");
+    await new Promise((r) => setTimeout(r, 400));
+    downloadXlsx(activeDataset);
+    recordExport({ kind: "xlsx", filename: `${cleanName}_cleaned.xlsx`, datasetId: activeDataset.id, datasetName: activeDataset.name });
     setDownloading(null);
   };
 
@@ -153,11 +156,28 @@ export default function ReportsPage() {
             Export audit summaries and compiled Markdown dashboards for your cleaned data structures.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap no-print">
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2.5 border border-white/10 hover:border-primary/40 hover:bg-primary/5 rounded-xl text-white font-mono text-xs uppercase tracking-wider font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-[0.98] cursor-pointer flex items-center gap-2"
+            title="Print or save as PDF"
+          >
+            <Printer className="w-4 h-4 text-zinc-400" />
+            PDF
+          </button>
+          <button
+            onClick={handleDownloadXlsx}
+            disabled={downloading !== null}
+            className="px-4 py-2.5 border border-white/10 hover:border-primary/40 hover:bg-primary/5 rounded-xl text-white font-mono text-xs uppercase tracking-wider font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-[0.98] cursor-pointer flex items-center gap-2"
+            title="Cleaned data + audit trail as a two-sheet workbook"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            {downloading === "xlsx" ? "Exporting..." : "XLSX + Audit"}
+          </button>
           <button
             onClick={handleDownloadMD}
             disabled={downloading !== null}
-            className="px-4 py-2.5 bg-primary text-black font-bold hover:bg-primary-fixed disabled:bg-zinc-900 disabled:text-zinc-500 disabled:border-white/5 rounded-xl text-xs font-mono uppercase tracking-wider transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2 shadow-lg"
+            className="px-4 py-2.5 bg-primary text-black font-bold hover:bg-primary-fixed disabled:bg-zinc-900 disabled:text-zinc-500 disabled:border-white/5 rounded-xl text-xs font-mono uppercase tracking-wider transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-[0.98] cursor-pointer flex items-center gap-2 shadow-lg"
           >
             <FileText className="w-4 h-4" />
             {downloading === "md" ? "Compiling..." : "Download Report (.md)"}
@@ -165,7 +185,7 @@ export default function ReportsPage() {
           <button
             onClick={handleDownloadCSV}
             disabled={downloading !== null}
-            className="px-4 py-2.5 border border-white/10 hover:border-primary/40 hover:bg-primary/5 rounded-xl text-white font-mono text-xs uppercase tracking-wider font-semibold transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2"
+            className="px-4 py-2.5 border border-white/10 hover:border-primary/40 hover:bg-primary/5 rounded-xl text-white font-mono text-xs uppercase tracking-wider font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-[0.98] cursor-pointer flex items-center gap-2"
           >
             <FileSpreadsheet className="w-4 h-4 text-zinc-400" />
             {downloading === "csv" ? "Exporting..." : "Export Clean CSV"}
@@ -264,6 +284,26 @@ export default function ReportsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Visual appendix — the auto dashboard, static, included in the PDF */}
+      <div className="space-y-3">
+        <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 px-1">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          Visual Appendix
+        </h2>
+        <AutoDashboard dataset={activeDataset} interactive={false} />
+      </div>
+
+      {/* Report footer */}
+      <div className="border-t border-white/5 pt-5 pb-2 text-center">
+        <p className="text-[11px] font-mono text-zinc-500">
+          Generated with Nexora — local-first analytics. Data never left this machine.
+        </p>
+        <p className="text-[10px] font-mono text-zinc-600 mt-1">
+          {new Date().toISOString().slice(0, 10)} · {activeDataset.rows.length} rows ·{" "}
+          {activeDataset.columns.length} columns · health {activeDataset.health.overall}%
+        </p>
       </div>
     </motion.div>
   );

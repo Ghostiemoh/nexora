@@ -9,10 +9,13 @@ import {
   Grid,
   ChevronRight,
   AlertCircle,
+  Sparkles,
+  Wand2,
 } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { executeSql, type SqlResult } from "@/lib/sql-engine";
+import { generateSqlFromEnglish, optimizeOrFixQuery } from "@/lib/ai";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { motion } from "framer-motion";
 
@@ -21,12 +24,20 @@ export default function SqlLabPage() {
   const datasets = useNexora((s) => s.datasets);
   const activeId = useNexora((s) => s.activeId);
   const addDataset = useNexora((s) => s.addDataset);
+  const settings = useNexora((s) => s.settings);
+  const notify = useNexora((s) => s.notify);
+  const logAudit = useNexora((s) => s.logAudit);
 
   const activeDataset = datasets.find((d) => d.id === activeId) || null;
 
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SqlResult | null>(null);
   const [running, setRunning] = useState(false);
+
+  // AI assist state
+  const [english, setEnglish] = useState("");
+  const [aiBusy, setAiBusy] = useState<"generate" | "advise" | null>(null);
+  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
 
   // Sync editor with the active dataset: pull a prefilled query handed over from
   // the AI Analyst (sessionStorage is an external store, so this belongs in an
@@ -103,11 +114,46 @@ export default function SqlLabPage() {
   const handleExecuteQuery = async () => {
     if (!query.trim()) return;
     setRunning(true);
+    setAiAdvice(null);
     // Add small visual delay
     await new Promise((resolve) => setTimeout(resolve, 150));
     const res = executeSql(query, activeDataset.rows);
     setResult(res);
     setRunning(false);
+    if (res.error) {
+      logAudit("query", `Query failed: ${res.error}`, activeDataset.id);
+    }
+  };
+
+  const handleGenerateSql = async () => {
+    if (!english.trim() || !settings.geminiApiKey) return;
+    setAiBusy("generate");
+    try {
+      const sql = await generateSqlFromEnglish(settings.geminiApiKey, activeDataset, english.trim());
+      setQuery(sql);
+      setAiAdvice(null);
+      logAudit("query", `AI generated SQL from: "${english.trim()}"`, activeDataset.id);
+    } catch (err) {
+      notify("error", "SQL generation failed", err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setAiBusy(null);
+    }
+  };
+
+  const handleAskAiAdvice = async () => {
+    if (!result || !settings.geminiApiKey) return;
+    setAiBusy("advise");
+    try {
+      const advice = await optimizeOrFixQuery(settings.geminiApiKey, activeDataset, query, {
+        error: result.error,
+        timeMs: result.executionTimeMs,
+      });
+      setAiAdvice(advice);
+    } catch (err) {
+      notify("error", "AI review failed", err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setAiBusy(null);
+    }
   };
 
   const handleIngestResult = () => {
@@ -134,6 +180,38 @@ export default function SqlLabPage() {
           </p>
         </div>
 
+        {/* English → SQL (AI) */}
+        <div className="space-y-2 shrink-0">
+          <label className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider block px-1 flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-primary" />
+            Ask in English
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={english}
+              onChange={(e) => setEnglish(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleGenerateSql();
+              }}
+              placeholder={
+                settings.geminiApiKey
+                  ? `e.g. "total salary by party, highest first"`
+                  : "Add a Gemini API key in Settings to enable this"
+              }
+              disabled={!settings.geminiApiKey || aiBusy !== null}
+              className="flex-1 bg-black/30 border border-white/10 rounded-xl text-xs text-white px-3 py-2.5 focus:border-primary/50 outline-none disabled:opacity-50"
+            />
+            <button
+              onClick={handleGenerateSql}
+              disabled={!settings.geminiApiKey || !english.trim() || aiBusy !== null}
+              className="px-3.5 py-2 bg-primary/12 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 shrink-0"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              {aiBusy === "generate" ? "Writing…" : "→ SQL"}
+            </button>
+          </div>
+        </div>
+
         {/* Editor Area */}
         <div className="space-y-2 flex flex-col flex-1 min-h-[220px]">
           <div className="flex justify-between items-center px-1 shrink-0">
@@ -145,7 +223,7 @@ export default function SqlLabPage() {
               <span>sqlite-mode</span>
             </div>
           </div>
-          
+
           <div className="flex-1 min-h-0 bg-black/40 border border-white/5 rounded-2xl p-4 flex flex-col font-mono text-xs relative group focus-within:border-primary/50 transition-colors shadow-inner">
             <textarea
               value={query}
@@ -157,13 +235,40 @@ export default function SqlLabPage() {
             <button
               onClick={handleExecuteQuery}
               disabled={running || !query.trim()}
-              className="absolute right-3.5 bottom-3.5 px-4 py-2 bg-primary disabled:bg-zinc-900 text-black disabled:text-zinc-600 rounded-xl text-xs font-mono uppercase tracking-wider font-bold hover:bg-primary-fixed disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer shadow-md"
+              className="absolute right-3.5 bottom-3.5 px-4 py-2 bg-primary disabled:bg-zinc-900 text-black disabled:text-zinc-600 rounded-xl text-xs font-mono uppercase tracking-wider font-bold hover:bg-primary-fixed disabled:cursor-not-allowed transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-[0.98] flex items-center gap-1.5 cursor-pointer shadow-md"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               {running ? "Running..." : "Run Query"}
             </button>
           </div>
         </div>
+
+        {/* AI review of the last run */}
+        {result && settings.geminiApiKey && (
+          <div className="space-y-2 shrink-0">
+            <button
+              onClick={handleAskAiAdvice}
+              disabled={aiBusy !== null}
+              className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5 border ${
+                result.error
+                  ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20"
+                  : "bg-white/5 border-white/10 text-on-surface hover:bg-white/[0.08]"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              {aiBusy === "advise"
+                ? "Reviewing…"
+                : result.error
+                  ? "Ask AI to fix this error"
+                  : `Ask AI to optimize (ran in ${result.executionTimeMs} ms)`}
+            </button>
+            {aiAdvice && (
+              <div className="bg-black/40 border border-primary/20 rounded-xl p-3.5 text-[11.5px] text-on-surface leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
+                {aiAdvice}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Templates Area */}
         <div className="space-y-2.5 shrink-0">
@@ -175,7 +280,7 @@ export default function SqlLabPage() {
               <button
                 key={idx}
                 onClick={() => setQuery(item.code)}
-                className="w-full text-left p-3.5 rounded-xl border border-white/5 bg-zinc-950/20 hover:bg-zinc-900/60 hover:border-white/15 text-xs transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
+                className="w-full text-left p-3.5 rounded-xl border border-white/5 bg-zinc-950/20 hover:bg-zinc-900/60 hover:border-white/15 text-xs transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer flex items-center justify-between group active:scale-[0.98]"
               >
                 <div className="space-y-1 min-w-0 pr-4">
                   <span className="font-bold text-white block group-hover:text-primary transition-colors truncate">
@@ -254,7 +359,7 @@ export default function SqlLabPage() {
           ) : (
             /* DATA TABLE RESULT */
             <div className="nexora-card overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto select-text">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-white/[0.06] text-on-surface-variant">

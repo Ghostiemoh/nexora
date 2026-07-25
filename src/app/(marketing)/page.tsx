@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -62,39 +61,20 @@ const FEATURES = [
   },
 ];
 
-const TIERS = [
-  {
-    name: "Free",
-    monthly: 0,
-    desc: "For quick profiles on your own data.",
-    features: ["In-memory SQL sandbox", "Dataset Doctor", "Axiom, local-first", "50MB per file"],
-    cta: "Get started",
-    href: "/dashboard",
-  },
-  {
-    name: "Pro",
-    monthly: 15,
-    desc: "For analysts who live in their data.",
-    features: ["Everything in Free", "Unlimited file size", "Saved workspaces", "PDF + dashboard export"],
-    cta: "Start Pro",
-    href: "/dashboard",
-    highlight: true,
-  },
-  {
-    name: "Team",
-    monthly: 49,
-    desc: "For teams sharing datasets.",
-    features: ["Everything in Pro", "Postgres + MySQL", "Shared directories", "SSO and audit log"],
-    cta: "Request demo",
-    href: "/support",
-  },
+const FREE_FEATURES = [
+  "Dataset Doctor with one-click fixes",
+  "Auto dashboard + insights",
+  "In-browser SQL sandbox",
+  "Cleaning recipes, undo, audit log",
+  "PostgreSQL + MySQL connections",
+  "AI chat & English→SQL (your own free Gemini key)",
+  "CSV, Excel, and PDF reports",
+  "Team workspace bundles",
+  "OCR + PDF table extraction",
+  "Local-first — data never leaves your device",
 ];
 
-const EASE_OUT = [0.23, 1, 0.32, 1] as const;
-
 export default function SleekLanding() {
-  const [annual, setAnnual] = useState(false);
-
   return (
     <div className="overflow-hidden">
       {/* ─── Hero ─── */}
@@ -259,97 +239,43 @@ export default function SleekLanding() {
       {/* ─── Testimonials ─── */}
       <Testimonials />
 
-      {/* ─── Pricing ─── */}
+      {/* ─── Free ─── */}
       <section id="pricing" className="px-6 py-20">
         <Reveal className="max-w-2xl mx-auto text-center mb-10">
           <h2 className="text-3xl md:text-5xl font-semibold tracking-[-0.02em] text-white">
-            Simple, honest pricing.
+            Free. All of it.
           </h2>
           <p className="mt-4 text-on-surface-variant">
-            Free forever for local work. Upgrade for scale and sharing.
+            No tiers, no seats, no trial timers. Nexora runs on your machine, so there is nothing to
+            meter — every feature is unlocked for everyone.
           </p>
-
-          {/* iOS segmented toggle */}
-          <div className="mt-8 inline-flex items-center rounded-full glass p-1 text-[13px] font-medium">
-            {(["monthly", "annual"] as const).map((mode) => {
-              const active = (mode === "annual") === annual;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setAnnual(mode === "annual")}
-                  className="press relative px-5 h-9 rounded-full cursor-pointer capitalize"
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="seg"
-                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                      className="absolute inset-0 rounded-full bg-white"
-                    />
-                  )}
-                  <span className={`relative z-10 ${active ? "text-black" : "text-zinc-400"}`}>
-                    {mode}
-                    {mode === "annual" && <span className="ml-1 text-primary">−20%</span>}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         </Reveal>
 
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-          {TIERS.map((t, i) => {
-            const price = annual ? Math.round(t.monthly * 0.8) : t.monthly;
-            return (
-              <Reveal key={t.name} delay={i * 0.07} className="h-full">
-                <div
-                  className={`relative h-full rounded-3xl p-7 flex flex-col ${
-                    t.highlight
-                      ? "glass sheen ring-1 ring-primary/40 shadow-[0_30px_60px_-30px_var(--primary)]"
-                      : "glass"
-                  }`}
-                >
-                  {t.highlight && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-on-primary text-[10px] font-semibold uppercase tracking-wide">
-                      Most popular
-                    </span>
-                  )}
-                  <h3 className="text-base font-semibold text-white">{t.name}</h3>
-                  <p className="text-[13px] text-on-surface-variant mt-1 mb-5 min-h-[34px]">{t.desc}</p>
-                  <div className="flex items-baseline gap-1 mb-6">
-                    <motion.span
-                      key={price}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: EASE_OUT }}
-                      className="text-4xl font-semibold text-white tabular-nums"
-                    >
-                      ${price}
-                    </motion.span>
-                    <span className="text-[13px] text-zinc-500">/mo</span>
-                  </div>
-                  <ul className="space-y-3 text-[13.5px] text-zinc-300 flex-1 mb-6">
-                    {t.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5">
-                        <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={t.href}
-                    className={`pill h-11 text-[14px] ${
-                      t.highlight
-                        ? "bg-primary text-on-primary"
-                        : "bg-white/5 text-white border border-white/10"
-                    }`}
-                  >
-                    {t.cta}
-                  </Link>
-                </div>
-              </Reveal>
-            );
-          })}
+        <div className="max-w-3xl mx-auto">
+          <Reveal className="h-full">
+            <div className="relative glass sheen ring-1 ring-primary/40 rounded-3xl p-8 shadow-[0_30px_60px_-30px_var(--primary)]">
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-on-primary text-[10px] font-semibold uppercase tracking-wide">
+                Free forever
+              </span>
+              <div className="flex items-baseline gap-1 mb-7 justify-center">
+                <span className="text-5xl font-semibold text-white tabular-nums">$0</span>
+                <span className="text-[13px] text-zinc-500">forever</span>
+              </div>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-[13.5px] text-zinc-300 mb-8">
+                {FREE_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-center">
+                <Link href="/dashboard" className="pill h-11 px-8 text-[14px] bg-primary text-on-primary">
+                  Start now — it&apos;s free
+                </Link>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 

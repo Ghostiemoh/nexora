@@ -205,7 +205,7 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
                   key={item.type}
                   type="button"
                   onClick={() => setJoinType(item.type as "inner" | "left" | "right" | "full")}
-                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-32 transition-all cursor-pointer ${
+                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-32 transition-[color,background-color,border-color,box-shadow,transform,opacity] cursor-pointer ${
                     joinType === item.type
                       ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(192,193,255,0.1)]"
                       : "border-outline-variant bg-surface-container-low/40 hover:border-outline-variant/80"
@@ -258,7 +258,7 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
           </button>
           <button
             onClick={handleMerge}
-            className="px-5 py-2 bg-primary text-on-primary rounded-lg text-body-md font-bold hover:bg-primary-fixed transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            className="px-5 py-2 bg-primary text-on-primary rounded-lg text-body-md font-bold hover:bg-primary-fixed transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-95 flex items-center gap-2 cursor-pointer"
           >
             Execute Join
             <ArrowRight className="w-4 h-4" />

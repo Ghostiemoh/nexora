@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  --font-inter: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-geist: 'Geist Sans', 'Geist', system-ui, -apple-system, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', Courier, monospace;
   --background: #090c15;
   --foreground: #e8ebf7;
 
@@ -572,5 +575,113 @@ body {
   .aurora-b,
   .sweep-on-hover::after {
     animation: none !important;
+  }
+}
+
+/* Application refresh: one quiet, high-contrast operating system vocabulary. */
+:root {
+  --background: #101315;
+  --foreground: #f1f2ed;
+  --primary: #e7b856;
+  --on-primary: #171208;
+  --primary-container: #463616;
+  --on-primary-container: #fbe8ba;
+  --secondary: #b9c4bc;
+  --on-secondary: #172019;
+  --secondary-container: #27312a;
+  --on-secondary-container: #d8e4db;
+  --tertiary: #8dc6bd;
+  --on-tertiary: #10211e;
+  --tertiary-container: #1f3935;
+  --on-tertiary-container: #bde8df;
+  --surface: #101315;
+  --surface-dim: #0b0e0f;
+  --surface-bright: #252a2a;
+  --surface-container-lowest: #0d1011;
+  --surface-container-low: #15191a;
+  --surface-container: #1b2020;
+  --surface-container-high: #232929;
+  --surface-container-highest: #2c3332;
+  --on-surface: #f1f2ed;
+  --on-surface-variant: #b7bfba;
+  --outline: #858e88;
+  --outline-variant: #3a423e;
+}
+
+body {
+  background:
+    radial-gradient(circle at 78% -10%, rgb(231 184 86 / 0.10), transparent 30rem),
+    var(--background);
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.glass-panel {
+  background: rgb(21 25 26 / 0.92);
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.nexora-card {
+  background: var(--surface-container-low);
+  border-color: var(--outline-variant);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px -20px rgb(0 0 0 / 0.8);
+}
+
+.nexora-ai-card {
+  background: linear-gradient(145deg, rgb(231 184 86 / 0.10), var(--surface-container-low) 40%);
+  border-color: rgb(231 184 86 / 0.28);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.nexora-card-interactive:hover {
+  border-color: rgb(231 184 86 / 0.5);
+  box-shadow: 0 12px 26px -20px rgb(0 0 0 / 0.9);
+}
+
+.pill {
+  min-height: 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Print: reports become the PDF deliverable ── */
+@media print {
+  aside,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  body {
+    background: #0b1326;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .nexora-card {
+    break-inside: avoid;
   }
 }

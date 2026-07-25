@@ -17,7 +17,8 @@ export function queryAxiom(query: string, dataset: Dataset | null): AxiomAnswer 
   }
 
   const clean = query.trim().toLowerCase();
-  
+  const cleanName = dataset.name.replace(/\.[^/.]+$/, "");
+
   // 1. Size / Count query
   if (clean.includes("size") || clean.includes("row") || clean.includes("count") || clean.includes("how many")) {
     const table: AxiomTable = {
@@ -35,7 +36,7 @@ The dataset **${dataset.name}** contains **${dataset.rows.length} rows** and **$
 
 Here is the auto-generated SQL query representing this statistics:
 \`\`\`sql
-SELECT COUNT(*) FROM dataset;
+SELECT COUNT(*) AS total_rows FROM ${cleanName}
 \`\`\``,
       table,
       suggestions: ["List columns", "Show duplicates", "Dataset health"],
@@ -58,7 +59,7 @@ I detected **${dataset.duplicateRows} duplicate rows** in your dataset.
 
 You can clean this immediately using the **Dataset Doctor** panel or run this query in the **SQL Lab**:
 \`\`\`sql
-SELECT COUNT(*), COUNT(DISTINCT customer_id) FROM dataset;
+SELECT COUNT(*) AS total_rows, COUNT(DISTINCT ${dataset.columns[0]}) AS distinct_${dataset.columns[0]} FROM ${cleanName}
 \`\`\``,
       table,
       suggestions: ["Run duplicates fix", "Show missing values"],
@@ -88,9 +89,9 @@ Great news! I scanned all columns and found **0 missing values**. Your dataset i
       text: `### Missing Values Diagnostics
 I identified missing values in **${missingRows.length} columns**.
 
-Here is the breakdown. You can run the following SQL query to audit this:
+Here is the breakdown. You can inspect the affected rows for any column with:
 \`\`\`sql
-SELECT ${dataset.profiles.filter(p => p.missingCount > 0).map(p => `COUNT(*) - COUNT(${p.name}) AS missing_${p.name}`).slice(0, 3).join(", ")} FROM dataset;
+SELECT * FROM ${cleanName} WHERE ${missingRows[0][0]} IS NULL LIMIT 25
 \`\`\``,
       table,
       suggestions: ["Apply auto-fix", "Zustand store", "Show column summaries"],
@@ -119,7 +120,7 @@ Here is the profile summary for all headers:`,
       headers: ["Category", "Score (%)"],
       rows: [
         ["Completeness", dataset.health.completeness],
-        ["Uniqueness", dataset.health.uniqueness],
+        ["Accuracy", dataset.health.accuracy],
         ["Validity", dataset.health.validity],
         ["Consistency", dataset.health.consistency],
         ["Overall Health Score", dataset.health.overall],
@@ -135,7 +136,87 @@ There are **${dataset.diagnostics.length} unresolved warnings** that you can fix
     };
   }
 
-  // 6. Default fallback
+  // 6. Dynamic Column Matcher
+  // Match a specific column name in the query, guarding against short names
+  // ("id") matching inside unrelated words ("provide").
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normQuery = normalize(clean);
+  const matchedCol = dataset.columns.find((col) => {
+    const nc = normalize(col);
+    if (nc.length < 3) return false;
+    const wordBoundary = new RegExp(`\\b${col.toLowerCase().replace(/[^a-z0-9_]+/g, "[^a-z0-9]*")}\\b`);
+    return wordBoundary.test(clean) || (nc.length >= 4 && normQuery.includes(nc));
+  });
+
+  if (matchedCol) {
+    const colProfile = dataset.profiles.find(p => p.name === matchedCol);
+    if (colProfile) {
+      const isNumeric = colProfile.type === "number";
+
+      let text = `### Column Profile: ${matchedCol}
+The field **${matchedCol}** is inferred as a **${colProfile.type}** type.
+- **Completeness:** ${colProfile.completeness.toFixed(1)}% (${colProfile.missingCount} null values)
+- **Uniqueness:** ${colProfile.uniqueness.toFixed(1)}% (${colProfile.uniqueCount} distinct values)`;
+
+      if (isNumeric) {
+        text += `
+- **Min / Max:** ${colProfile.min ?? "N/A"} / ${colProfile.max ?? "N/A"}
+- **Mean / Median:** ${colProfile.mean ?? "N/A"} / ${colProfile.median ?? "N/A"}
+- **Std Dev (sample):** ${colProfile.std ?? "N/A"}
+- **IQR (p25–p75):** ${colProfile.p25 ?? "N/A"} – ${colProfile.p75 ?? "N/A"}
+- **Outliers (1.5×IQR):** ${colProfile.outlierCount ?? 0}`;
+      } else if (colProfile.type === "date" && colProfile.dateMin) {
+        text += `
+- **Date range:** ${colProfile.dateMin} → ${colProfile.dateMax}`;
+      }
+
+      text += `
+
+Here is the SQL snippet to query this field:
+\`\`\`sql
+SELECT ${matchedCol}, COUNT(*) AS count FROM ${cleanName} GROUP BY ${matchedCol} ORDER BY count DESC LIMIT 10
+\`\`\``;
+
+      let table: AxiomTable | undefined = undefined;
+
+      if (isNumeric) {
+        table = {
+          headers: ["Statistic", "Value"],
+          rows: [
+            ["Completeness (%)", colProfile.completeness.toFixed(1)],
+            ["Nulls Count", colProfile.missingCount],
+            ["Distinct Count", colProfile.uniqueCount],
+            ["Minimum Value", colProfile.min ?? "N/A"],
+            ["Maximum Value", colProfile.max ?? "N/A"],
+            ["Average (Mean)", colProfile.mean ?? "N/A"],
+            ["Median (p50)", colProfile.median ?? "N/A"],
+            ["p25 / p75", `${colProfile.p25 ?? "N/A"} / ${colProfile.p75 ?? "N/A"}`],
+            ["Std Dev (sample)", colProfile.std ?? "N/A"],
+            ["Outliers (1.5×IQR)", colProfile.outlierCount ?? 0],
+          ]
+        };
+      } else if (colProfile.topValues && colProfile.topValues.length > 0) {
+        table = {
+          headers: ["Category Value", "Occurrences"],
+          rows: colProfile.topValues.map(v => [v.value || "(blank)", v.count])
+        };
+      }
+
+      const suggestions = [
+        `SELECT * FROM ${cleanName} LIMIT 10`,
+        "Show missing values",
+        "Overall health"
+      ];
+
+      return {
+        text,
+        table,
+        suggestions
+      };
+    }
+  }
+
+  // 7. Default fallback
   return {
     text: `### Nexus AI Assistant
 I can help you audit your dataset. Try asking:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   TrendingUp,
   Sparkles,
@@ -8,11 +8,19 @@ import {
   AlertCircle,
   Database,
   GitBranch,
+  Undo2,
+  FileJson,
+  FileUp,
 } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { JoinCreatorModal } from "@/components/layout/join-creator-modal";
+import { TruncationBanner } from "@/components/truncation-banner";
+import { AutoDashboard } from "@/components/auto-dashboard";
+import { ValueReview } from "@/components/value-review";
+import { TransformTools } from "@/components/transform-tools";
+import { buildRecipe, serializeRecipe, parseRecipe, previewCleanOp, type OpPreview } from "@/lib/recipe";
 import type { CleanOp } from "@/lib/types";
 import { motion } from "framer-motion";
 
@@ -23,11 +31,27 @@ export default function DashboardPage() {
   const datasets = useNexora((s) => s.datasets);
   const activeId = useNexora((s) => s.activeId);
   const applyFix = useNexora((s) => s.applyFix);
+  const undoFix = useNexora((s) => s.undoFix);
+  const undoDepth = useNexora((s) => s.undoDepth);
+  const applyRecipe = useNexora((s) => s.applyRecipe);
+  const recordExport = useNexora((s) => s.recordExport);
 
   const activeDataset = datasets.find((d) => d.id === activeId) || null;
 
   const [fixingId, setFixingId] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
+  const [recipeError, setRecipeError] = useState<string | null>(null);
+  const recipeInputRef = useRef<HTMLInputElement>(null);
+
+  // Dry-run every fixable diagnostic so each card shows its blast radius.
+  const previews = useMemo(() => {
+    const map = new Map<string, OpPreview>();
+    if (!activeDataset) return map;
+    for (const diag of activeDataset.diagnostics) {
+      if (diag.fix) map.set(diag.id, previewCleanOp(activeDataset.rows, diag.fix.op));
+    }
+    return map;
+  }, [activeDataset]);
 
   if (!mounted) {
     return (
@@ -89,6 +113,36 @@ export default function DashboardPage() {
     setFixingId(null);
   };
 
+  const handleUndo = () => {
+    undoFix(activeDataset.id);
+  };
+
+  const handleExportRecipe = () => {
+    const recipe = buildRecipe(activeDataset.name, activeDataset.recipe ?? []);
+    const json = serializeRecipe(recipe);
+    const filename = `${activeDataset.name.replace(/\.[^/.]+$/, "")}_recipe.json`;
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    recordExport({ kind: "recipe", filename, datasetId: activeDataset.id, datasetName: activeDataset.name, content: json });
+  };
+
+  const handleApplyRecipeFile = async (file: File) => {
+    setRecipeError(null);
+    try {
+      const recipe = parseRecipe(await file.text());
+      applyRecipe(activeDataset.id, recipe.ops);
+    } catch (err) {
+      setRecipeError(err instanceof Error ? err.message : "Could not read recipe.");
+    }
+  };
+
   // ── Gauge ──
   const overallScore = activeDataset.health.overall;
   const radius = 46;
@@ -97,7 +151,7 @@ export default function DashboardPage() {
 
   const METRICS = [
     { title: "Completeness", score: activeDataset.health.completeness, color: "#34d399", desc: "Share of non-empty cells across the dataset." },
-    { title: "Uniqueness", score: activeDataset.health.uniqueness, color: "#c0c1ff", desc: "Distinct records. Duplicates pull this down." },
+    { title: "Accuracy", score: activeDataset.health.accuracy, color: "#c0c1ff", desc: "Numeric values within the expected 1.5×IQR range." },
     { title: "Validity", score: activeDataset.health.validity, color: "#fbbf24", desc: "Cells that match their inferred column type." },
     { title: "Consistency", score: activeDataset.health.consistency, color: "#38bdf8", desc: "Cleanliness of whitespace, formats, and dupes." },
   ];
@@ -122,7 +176,51 @@ export default function DashboardPage() {
             </span>
           </p>
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex gap-2.5 flex-wrap">
+          {undoDepth(activeDataset.id) > 0 && (
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={fixingId !== null}
+              className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08] disabled:opacity-40"
+              title="Undo the last cleaning operation"
+            >
+              <Undo2 className="w-4 h-4 text-on-surface-variant" />
+              Undo
+            </button>
+          )}
+          {(activeDataset.recipe?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={handleExportRecipe}
+              className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08]"
+              title="Save the applied fixes as a replayable recipe"
+            >
+              <FileJson className="w-4 h-4 text-on-surface-variant" />
+              Save recipe
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => recipeInputRef.current?.click()}
+            disabled={fixingId !== null}
+            className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08] disabled:opacity-40"
+            title="Replay a saved cleaning recipe on this dataset"
+          >
+            <FileUp className="w-4 h-4 text-on-surface-variant" />
+            Apply recipe
+          </button>
+          <input
+            ref={recipeInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleApplyRecipeFile(f);
+              e.target.value = "";
+            }}
+          />
           {datasets.length > 1 && (
             <button
               type="button"
@@ -145,7 +243,17 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Top grid */}
+      {recipeError && (
+        <div className="nexora-card p-3.5 border-amber-400/30 text-amber-300 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          Recipe error: {recipeError}
+        </div>
+      )}
+
+      {activeDataset.truncated && <TruncationBanner rows={activeDataset.rows.length} />}
+
+      {/* Overview */}
+      <h2 className="text-lg font-semibold text-white tracking-tight px-1 -mb-3">Overview</h2>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Health gauge */}
         <div className="nexora-card lg:col-span-4 p-6 flex flex-col">
@@ -250,6 +358,17 @@ export default function DashboardPage() {
                       <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
                         {diag.description}
                       </p>
+                      {(() => {
+                        const p = previews.get(diag.id);
+                        if (!p || (p.changedCells === 0 && p.removedRows === 0)) return null;
+                        return (
+                          <p className="text-[11px] font-mono text-primary/80 mt-1.5">
+                            {p.removedRows > 0
+                              ? `will remove ${p.removedRows} row(s)`
+                              : `will change ${p.changedCells} cell(s)`}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                   {diag.fix && (
@@ -312,6 +431,26 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Excel tools: Find & Replace, Text to Columns */}
+      <TransformTools dataset={activeDataset} />
+
+      {/* Manual review of rare values the auto-fixer couldn't safely merge */}
+      <ValueReview dataset={activeDataset} />
+
+      {/* Auto dashboard — every chart the dataset supports, generated automatically */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-end justify-between px-1">
+          <div>
+            <h2 className="text-lg font-semibold text-white tracking-tight">Auto dashboard</h2>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              KPIs, splits, distributions, and trends — built automatically from{" "}
+              <span className="font-mono text-primary">{activeDataset.name}</span>. No setup.
+            </p>
+          </div>
+        </div>
+        <AutoDashboard dataset={activeDataset} />
       </div>
 
       {isJoinOpen && <JoinCreatorModal isOpen={isJoinOpen} onClose={() => setIsJoinOpen(false)} />}

@@ -12,7 +12,7 @@ const FAQS = [
   },
   {
     q: "How large a file can it handle?",
-    a: "The free tier parses files up to 50MB and caps at 50,000 rows. Pro lifts both limits and runs in a higher-memory mode for multi-million row exports.",
+    a: "Files up to 25MB and 50,000 rows per dataset — the practical ceiling for smooth in-browser profiling. That covers the vast majority of real-world exports, and it's the same limit for everyone: there is no paid tier.",
   },
   {
     q: "Do I need to know SQL?",
@@ -24,7 +24,7 @@ const FAQS = [
   },
   {
     q: "Can my team share datasets and reports?",
-    a: "On the Team plan, yes: shared directories, roles, a team-wide audit log, plus direct connections to PostgreSQL and MySQL replicas.",
+    a: "Yes, and it's free: export your whole workspace (datasets, cleaning recipes, audit trail, roster) as one bundle and a teammate imports it. PostgreSQL and MySQL connections are included for everyone too.",
   },
 ];
 

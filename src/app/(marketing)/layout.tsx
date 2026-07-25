@@ -34,7 +34,7 @@ export default function MarketingLayout({
           <nav className="hidden md:flex items-center gap-1 text-[13.5px] text-on-surface-variant">
             {[
               { label: "Features", href: "#features" },
-              { label: "Pricing", href: "#pricing" },
+              { label: "Free", href: "#pricing" },
               { label: "Docs", href: "/docs" },
               { label: "Company", href: "/company" },
             ].map((l) => (
