@@ -7,7 +7,7 @@ const BARS = [38, 60, 48, 72, 64, 88, 81];
 const R = 52;
 const CIRC = 2 * Math.PI * R;
 
-/* A calm, glassy app window — the kind of mockup Apple floats under a headline.
+/* A calm, glassy app window. The kind of mockup Apple floats under a headline.
    Health ring draws in, bars grow, Axiom answers. Restrained, one accent. */
 export function AppWindow() {
   const reduced = useReducedMotion();

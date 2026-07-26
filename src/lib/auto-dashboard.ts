@@ -1,6 +1,6 @@
 /* Auto-dashboard engine: inspects a profiled dataset and decides every chart
- * it can meaningfully support — KPI cards, pies, bars, histograms, time series,
- * and pivot-style breakdowns — plus plain-language insights. Pure logic, no UI,
+ * it can meaningfully support: KPI cards, pies, bars, histograms, time series,
+ * and pivot-style breakdowns, plus plain-language insights. Pure logic, no UI,
  * so chart selection is unit-testable. */
 
 import type { Dataset, ColumnProfile, Row } from "./types";
@@ -166,7 +166,7 @@ export function binNumeric(rows: Row[], column: string, binCount = 10): { bin: s
 }
 
 /** Bucket rows by a date column (day or month depending on span) and sum a
- *  numeric column — or count rows when valueCol is null. */
+ *  numeric column, or count rows when valueCol is null. */
 export function bucketByDate(
   rows: Row[],
   dateCol: string,
@@ -296,7 +296,7 @@ export function buildDashboard(ds: Dataset, rowsOverride?: Row[]): DashboardSpec
   const charts: ChartSpec[] = [];
   const insights: string[] = [];
 
-  // 1. Time series — first date column that actually varies × up to 2 measures
+  // 1. Time series: first date column that actually varies × up to 2 measures
   // (or row counts). Constant columns ("last updated" stamps) are skipped.
   for (const dc of dates) {
     let added = 0;
@@ -338,7 +338,7 @@ export function buildDashboard(ds: Dataset, rowsOverride?: Row[]): DashboardSpec
     }
   }
 
-  // 2. Pivot breakdowns — Excel-style SUM(measure) by category.
+  // 2. Pivot breakdowns: Excel-style SUM(measure) by category.
   const pivotCat = cats.find((c) => c.uniqueCount <= 12) ?? cats[0];
   if (pivotCat) {
     for (const m of measures.slice(0, 2)) {
@@ -378,7 +378,7 @@ export function buildDashboard(ds: Dataset, rowsOverride?: Row[]): DashboardSpec
     }
   }
 
-  // 3. Pies — low-cardinality categoricals as composition.
+  // 3. Pies: low-cardinality categoricals as composition.
   for (const c of cats.filter((c) => c.uniqueCount <= PIE_MAX_SLICES).slice(0, 3)) {
     const data = topWithOther(valueCounts(rows, c.name), PIE_MAX_SLICES);
     if (data.length >= 2) {
@@ -392,7 +392,7 @@ export function buildDashboard(ds: Dataset, rowsOverride?: Row[]): DashboardSpec
     }
   }
 
-  // 4. Histograms — every numeric column's distribution.
+  // 4. Histograms: every numeric column's distribution.
   for (const m of measures.slice(0, 4)) {
     const data = binNumeric(rows, m.name);
     if (data.length >= 2) {
@@ -412,13 +412,13 @@ export function buildDashboard(ds: Dataset, rowsOverride?: Row[]): DashboardSpec
       const skew = (m.mean - m.median) / Math.abs(m.median);
       if (Math.abs(skew) >= 0.25) {
         insights.push(
-          `${m.name} is ${skew > 0 ? "right" : "left"}-skewed (mean ${fmtShort(m.mean)} vs median ${fmtShort(m.median)}) — prefer the median.`
+          `${m.name} is ${skew > 0 ? "right" : "left"}-skewed (mean ${fmtShort(m.mean)} vs median ${fmtShort(m.median)}), so quote the median instead.`
         );
       }
     }
   }
 
-  // 5. Top-N bars — higher-cardinality categoricals by frequency.
+  // 5. Top-N bars: higher-cardinality categoricals by frequency.
   for (const c of cats.filter((c) => c.uniqueCount > PIE_MAX_SLICES).slice(0, 2)) {
     const data = valueCounts(rows, c.name).slice(0, 10);
     if (data.length >= 2) {
@@ -440,7 +440,7 @@ export function buildDashboard(ds: Dataset, rowsOverride?: Row[]): DashboardSpec
   const worstCol = [...ds.profiles].sort((a, b) => a.completeness - b.completeness)[0];
   if (worstCol && worstCol.completeness < 95) {
     insights.push(
-      `${worstCol.name} is the least complete column (${worstCol.completeness.toFixed(1)}% filled) — fix it in Dataset Doctor.`
+      `${worstCol.name} is the least complete column at ${worstCol.completeness.toFixed(1)}% filled. Fix it in Dataset Doctor.`
     );
   }
 

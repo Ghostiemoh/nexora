@@ -52,7 +52,7 @@ export function WorkspaceBundleCard() {
     };
     const json = JSON.stringify(bundle);
     if (json.length > MAX_BUNDLE_BYTES) {
-      notify("warning", "Workspace too large", "The bundle exceeds 20 MB — remove a large dataset first.");
+      notify("warning", "Workspace too large", "The bundle is over 20 MB. Remove a large dataset and try again.");
       return;
     }
     const blob = new Blob([json], { type: "application/json" });
@@ -107,9 +107,9 @@ export function WorkspaceBundleCard() {
         <h3 className="text-sm font-semibold text-white">Shared workspace</h3>
       </div>
       <p className="text-xs text-on-surface-variant leading-relaxed">
-        Bundle every dataset (with its cleaning recipe and audit trail) plus the team roster into one
-        file. A teammate imports it and gets the exact same workspace — no account, no server, data
-        stays on your machines.
+        Bundle every dataset, along with its cleaning recipe and audit trail, plus the team roster
+        into one file. A teammate imports it and gets the same workspace you have. There is no
+        account to create and no server in the middle, so the data stays on your own machines.
       </p>
       <div className="flex gap-2 flex-wrap">
         <button

@@ -286,7 +286,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Visual appendix — the auto dashboard, static, included in the PDF */}
+      {/* Visual appendix: the auto dashboard, static, included in the PDF */}
       <div className="space-y-3">
         <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2 px-1">
           <BarChart3 className="w-4 h-4 text-primary" />
@@ -298,7 +298,7 @@ export default function ReportsPage() {
       {/* Report footer */}
       <div className="border-t border-white/5 pt-5 pb-2 text-center">
         <p className="text-[11px] font-mono text-zinc-500">
-          Generated with Nexora — local-first analytics. Data never left this machine.
+          Generated locally with Nexora. This data never left the machine that produced the report.
         </p>
         <p className="text-[10px] font-mono text-zinc-600 mt-1">
           {new Date().toISOString().slice(0, 10)} · {activeDataset.rows.length} rows ·{" "}

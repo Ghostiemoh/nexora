@@ -92,7 +92,7 @@ function pushUndo(datasetId: string, snap: UndoSnapshot) {
   undoStacks.set(datasetId, stack);
 }
 
-/** localStorage with quota guard — large datasets stay in memory only */
+/** localStorage with a quota guard. Large datasets stay in memory only. */
 const guardedStorage = createJSONStorage(() => ({
   getItem: (k: string) => {
     try {
@@ -109,7 +109,7 @@ const guardedStorage = createJSONStorage(() => ({
         localStorage.removeItem(k);
       }
     } catch {
-      /* quota exceeded — keep in memory only */
+      /* quota exceeded, keep in memory only */
     }
   },
   removeItem: (k: string) => {
@@ -303,7 +303,7 @@ export const useNexora = create<NexoraState>()(
           get().notify(
             "warning",
             "Low data health",
-            `'${name}' scored ${newDataset.health.overall}% — ${newDataset.diagnostics.length} issue(s) found. Open Dataset Doctor to fix them.`
+            `'${name}' scored ${newDataset.health.overall}% with ${newDataset.diagnostics.length} issue(s) found. Open Dataset Doctor to fix them.`
           );
         } else {
           get().notify("success", "Dataset imported", `'${name}' is ready (health ${newDataset.health.overall}%).`);

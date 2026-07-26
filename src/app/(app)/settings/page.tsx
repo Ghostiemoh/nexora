@@ -57,9 +57,11 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-on-surface">AI &amp; integrations</h2>
         </div>
         <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
-          Add a Google Gemini API key to unlock natural-language chat, English-to-SQL, and query
-          fixing. The key is stored only in this browser; requests carry your dataset&apos;s{" "}
-          <span className="text-on-surface">schema and a few sample rows</span>, never the full data.
+          Add a Google Gemini API key and you can chat with your data in plain English, turn a
+          question into SQL, and get broken queries rewritten. The key is stored only in this
+          browser. Requests carry your dataset&apos;s{" "}
+          <span className="text-on-surface">schema and five sample rows</span>, while the data itself
+          stays here.
         </p>
         <div className="flex gap-2 max-w-xl">
           <input
@@ -86,7 +88,7 @@ export default function SettingsPage() {
           </button>
         </div>
         <p className="text-[11px] font-mono text-on-surface-variant/70">
-          Status: {settings.geminiApiKey ? "AI features enabled" : "AI features off — local rule-based analyst still works"}
+          Status: {settings.geminiApiKey ? "AI features enabled" : "AI features off. The local rule-based analyst still works."}
         </p>
       </section>
 

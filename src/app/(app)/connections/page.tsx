@@ -72,13 +72,13 @@ export default function ConnectionsPage() {
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Connection failed");
       updateConnection(conn.id, { lastStatus: "ok", lastError: undefined });
       setTablesByConn((prev) => ({ ...prev, [conn.id]: data.tables ?? [] }));
-      notify("success", "Connection OK", `'${conn.name}' is reachable — ${data.tables?.length ?? 0} table(s) found.`);
+      notify("success", "Connection OK", `'${conn.name}' is reachable. Found ${data.tables?.length ?? 0} table(s).`);
       logAudit("connection", `Tested '${conn.name}': OK (${data.tables?.length ?? 0} tables).`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Connection failed";
       updateConnection(conn.id, { lastStatus: "error", lastError: msg });
       notify("error", "Connection failed", `'${conn.name}': ${msg}`);
-      logAudit("connection", `Tested '${conn.name}': FAILED — ${msg}`);
+      logAudit("connection", `Tested '${conn.name}': failed. ${msg}`);
     } finally {
       setBusyId(null);
     }
@@ -234,7 +234,7 @@ export default function ConnectionsPage() {
                 {tables && (
                   <div className="space-y-3">
                     <p className="text-[11px] text-on-surface-variant font-mono">
-                      {tables.length} table(s) — click to import the first 50k rows
+                      {tables.length} table(s). Click one to import its first 50k rows.
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {tables.slice(0, 30).map((t) => (

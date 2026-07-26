@@ -1,5 +1,5 @@
 /* Read-only guard for the database API routes. Nexora is an analytics tool,
- * not an admin console — the API executes SELECT-shaped statements only, and
+ * not an admin console. The API executes SELECT-shaped statements only, and
  * never more than one statement per request. */
 
 const ALLOWED_STARTS = /^(SELECT|WITH|SHOW|DESCRIBE|DESC|EXPLAIN)\b/i;

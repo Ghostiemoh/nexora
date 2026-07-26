@@ -71,7 +71,7 @@ const FREE_FEATURES = [
   "CSV, Excel, and PDF reports",
   "Team workspace bundles",
   "OCR + PDF table extraction",
-  "Local-first — data never leaves your device",
+  "Your data never leaves your device",
 ];
 
 export default function SleekLanding() {
@@ -243,11 +243,12 @@ export default function SleekLanding() {
       <section id="pricing" className="px-6 py-20">
         <Reveal className="max-w-2xl mx-auto text-center mb-10">
           <h2 className="text-3xl md:text-5xl font-semibold tracking-[-0.02em] text-white">
-            Free. All of it.
+            Everything is free
           </h2>
           <p className="mt-4 text-on-surface-variant">
-            No tiers, no seats, no trial timers. Nexora runs on your machine, so there is nothing to
-            meter — every feature is unlocked for everyone.
+            Nexora runs on your own machine, so there is nothing to meter and nothing to bill you
+            for. Every feature below is available to everyone, and there is no paid tier to upgrade
+            to.
           </p>
         </Reveal>
 
@@ -271,7 +272,7 @@ export default function SleekLanding() {
               </ul>
               <div className="flex justify-center">
                 <Link href="/dashboard" className="pill h-11 px-8 text-[14px] bg-primary text-on-primary">
-                  Start now — it&apos;s free
+                  Start now for free
                 </Link>
               </div>
             </div>

@@ -162,7 +162,7 @@ export default function WorkspacePage() {
       const fallback = queryAxiom(question, activeDataset);
       pushChatMessage(activeDataset.id, {
         role: "axiom",
-        text: `(AI unavailable — answered by the local engine) ${fallback.text}`,
+        text: `(AI unavailable, so the local engine answered this) ${fallback.text}`,
         table: fallback.table,
         suggestions: fallback.suggestions,
       });

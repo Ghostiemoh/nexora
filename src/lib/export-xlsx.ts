@@ -1,8 +1,8 @@
 import * as XLSX from "xlsx";
 import type { Dataset } from "./types";
 
-/** Two-sheet workbook: the cleaned data plus a cleaning audit trail —
- *  the client-ready deliverable. */
+/** Two-sheet workbook holding the cleaned data plus a cleaning audit trail.
+ *  This is the client-ready deliverable. */
 export function datasetToWorkbook(ds: Dataset): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 

@@ -129,7 +129,7 @@ export function executeSql(sql: string, data: Row[]): SqlResult {
       });
     }
 
-    // 4. Sorting (ORDER BY) — supports name, alias, and ordinal (ORDER BY 2).
+    // 4. Sorting (ORDER BY) supports name, alias, and ordinal (ORDER BY 2).
     if (orderByStr) {
       const orderItems = orderByStr.split(",").map((s) => {
         const parts = s.trim().split(/\s+/);

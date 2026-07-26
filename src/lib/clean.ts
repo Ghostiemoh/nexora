@@ -7,7 +7,7 @@ import { parseNumeric } from "./number";
  * than hard-coding fragile literal sequences, we derive them: for each
  * target character, compute its UTF-8 bytes mapped through cp1252 (the
  * single-mangled form), mangle that again (the double form), and a
- * "lossy" variant with the invisible/control bytes dropped — which is
+ * "lossy" variant with the invisible/control bytes dropped, which is
  * what survives a careless CSV round-trip. */
 
 const CP1252: Record<number, number> = {
@@ -19,7 +19,7 @@ const CP1252: Record<number, number> = {
   0x9e: 0x017e, 0x9f: 0x0178,
 };
 
-/** Encode a string to UTF-8, then decode each byte as cp1252 — one round of mangling. */
+/** Encode a string to UTF-8, then decode each byte as cp1252. One round of mangling. */
 function mangle(s: string): string {
   const bytes = new TextEncoder().encode(s);
   let out = "";

@@ -14,7 +14,7 @@ interface RareValue {
 }
 
 /** Rare category values the auto-fixer couldn't safely merge (no close match),
- *  offered for manual reassignment — e.g. "Whig   April 4, 1841…" → "Whig". */
+ *  offered for manual reassignment, e.g. "Whig   April 4, 1841…" → "Whig". */
 function findRareValues(dataset: Dataset): RareValue[] {
   const out: RareValue[] = [];
   for (const p of dataset.profiles) {

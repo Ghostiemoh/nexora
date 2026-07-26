@@ -1,6 +1,6 @@
 /* Gemini-backed AI features. The user's API key lives in their browser
  * (Settings → AI); requests go directly from the browser to Google's API.
- * Only the dataset SCHEMA and a few sample rows are ever sent — never the
+ * Only the dataset SCHEMA and a few sample rows are ever sent, never the
  * full dataset. Every feature degrades gracefully when no key is set. */
 
 import type { Dataset } from "./types";
@@ -33,7 +33,7 @@ export async function callGemini(apiKey: string, prompt: string, system?: string
   return text.trim();
 }
 
-/** Schema + stats + a few sample rows — enough context to reason about the
+/** Schema, stats, and a few sample rows: enough context to reason about the
  *  data without shipping the data. */
 export function buildSchemaContext(dataset: Dataset, sampleRows = 5): string {
   const cols = dataset.profiles

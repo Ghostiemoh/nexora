@@ -29,7 +29,7 @@ export interface ColumnProfile {
   iqr?: number;
   /** count of numeric values outside the 1.5*IQR fences */
   outlierCount?: number;
-  /** date columns only — ISO range bounds */
+  /** date columns only, ISO range bounds */
   dateMin?: string;
   dateMax?: string;
   /** categorical columns only */
@@ -86,7 +86,7 @@ export interface Dataset {
   changelog: string[];
   /** parse stopped at the row cap */
   truncated: boolean;
-  /** every cleaning op applied, in order — exportable and replayable */
+  /** every cleaning op applied, in order, exportable and replayable */
   recipe?: CleanOp[];
 }
 

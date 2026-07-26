@@ -59,7 +59,7 @@ const diagById = (diags: Diagnostic[], prefix: string) =>
 describe("index column detection", () => {
   it("flags 0-based and 1-based sequential runs, tolerating a duplicate", () => {
     expect(isSequentialIndex([0, 1, 2, 3, 4, 5])).toBe(true);
-    // 1..28, 28 again, 29..45 — an adjacent duplicate from a copy-pasted row
+    // 1..28, 28 again, then 29..45: an adjacent duplicate from a copy-pasted row
     const withDup = [
       ...Array.from({ length: 28 }, (_, i) => i + 1),
       28,

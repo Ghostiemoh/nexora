@@ -163,7 +163,7 @@ export default function OcrCenterPage() {
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setFileError(`File is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 25 MB.`);
+      setFileError(`File is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 25 MB.`);
       return;
     }
     setFileError(null);
@@ -214,10 +214,10 @@ export default function OcrCenterPage() {
         continue;
       }
 
-      // Scanned page — render to canvas and OCR it.
+      // Scanned page: render to canvas and OCR it.
       const Tesseract = getTesseract();
       if (!Tesseract) continue;
-      setOcrStatus(`Page ${p} is a scan — running OCR…`);
+      setOcrStatus(`Page ${p} is a scan, running OCR…`);
       const viewport = page.getViewport({ scale: 2 });
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
@@ -450,7 +450,7 @@ export default function OcrCenterPage() {
             </p>
             <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-mono">
               <ShieldCheck className="w-4 h-4 text-primary" />
-              <span>Your file never leaves your device — extraction runs locally in your browser.</span>
+              <span>Your file never leaves your device. Extraction runs locally in your browser.</span>
             </div>
             {fileError && (
               <p className="mt-4 text-xs text-error font-medium" role="alert">

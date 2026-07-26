@@ -1,7 +1,7 @@
 import { Database, FileSpreadsheet, FileJson, Table2, Sheet, Boxes, HardDrive, Cloud } from "lucide-react";
 import { Reveal } from "./sleek";
 
-/* Honest "works with" row — formats and stores Nexora ingests, not fake
+/* Honest "works with" row: formats and stores Nexora ingests, not fake
    endorsement logos. Monochrome chips in an edge-masked marquee. */
 const STACK: { label: string; icon: typeof Database }[] = [
   { label: "PostgreSQL", icon: Database },

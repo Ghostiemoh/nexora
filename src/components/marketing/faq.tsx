@@ -12,7 +12,7 @@ const FAQS = [
   },
   {
     q: "How large a file can it handle?",
-    a: "Files up to 25MB and 50,000 rows per dataset — the practical ceiling for smooth in-browser profiling. That covers the vast majority of real-world exports, and it's the same limit for everyone: there is no paid tier.",
+    a: "Files up to 25MB and 50,000 rows per dataset, which is where profiling in a browser tab stops feeling instant. Most exports land well inside that. The limit is the same for everyone, since there is no paid tier.",
   },
   {
     q: "Do I need to know SQL?",
@@ -24,7 +24,7 @@ const FAQS = [
   },
   {
     q: "Can my team share datasets and reports?",
-    a: "Yes, and it's free: export your whole workspace (datasets, cleaning recipes, audit trail, roster) as one bundle and a teammate imports it. PostgreSQL and MySQL connections are included for everyone too.",
+    a: "Yes. Export the whole workspace as one bundle, including datasets, cleaning recipes, the audit trail, and the roster, and a teammate imports it to get your exact setup. PostgreSQL and MySQL connections are available to everyone as well.",
   },
 ];
 

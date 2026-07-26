@@ -10,7 +10,7 @@ interface TestBody {
 }
 
 /** Connectivity check + table listing for a user-supplied connection. The
- *  connection string comes from and stays with the user — it is used for this
+ *  connection string comes from and stays with the user. It is used for this
  *  request only and never persisted server-side. */
 export async function POST(req: Request) {
   let body: TestBody;

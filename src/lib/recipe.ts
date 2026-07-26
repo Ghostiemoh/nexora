@@ -47,8 +47,8 @@ export function parseRecipe(json: string): Recipe {
   return { version: 1, source: r.source ?? "unknown", createdAt: r.createdAt ?? "", ops: r.ops as CleanOp[] };
 }
 
-/** Apply every op in order. Ops referencing missing columns are skipped, not
- *  fatal — recipes should survive small schema drift between exports. */
+/** Apply every op in order. Ops referencing a missing column are skipped
+ *  rather than fatal, so a recipe survives small schema drift between exports. */
 export function replayRecipe(rows: Row[], columns: string[], ops: CleanOp[]): {
   rows: Row[];
   columns: string[];
@@ -70,7 +70,7 @@ export function replayRecipe(rows: Row[], columns: string[], ops: CleanOp[]): {
     if (op.kind === "dropColumn") {
       outCols = outCols.filter((c) => c !== op.column);
     } else if (op.kind === "splitColumn" && outRows.length > 0) {
-      // Splitting rewrites the schema — take the new column order from the rows.
+      // Splitting rewrites the schema, so take the new column order from the rows.
       outCols = Object.keys(outRows[0]);
     }
     applied++;

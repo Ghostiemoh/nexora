@@ -353,7 +353,7 @@ export function profileDataset(raw: {
       id: "diag_encoding",
       severity: "warning",
       title: "Broken Text Encoding",
-      description: `Columns (${mojibakeCols.slice(0, 3).join(", ")}) contain garbled characters like "â€“" — usually a CSV saved with the wrong encoding.`,
+      description: `Columns (${mojibakeCols.slice(0, 3).join(", ")}) contain garbled characters like "â€“". This usually means a CSV was saved with the wrong encoding.`,
       fix: { op: { kind: "fixEncoding" }, label: "Repair Encoding" },
     });
   }
@@ -384,7 +384,7 @@ export function profileDataset(raw: {
       id: `diag_dupid_${col}`,
       severity: "warning",
       title: `Repeated IDs in '${col}'`,
-      description: `'${col}' looks like a unique identifier but has repeated values — often a sign of near-duplicate rows that differ in one cell. Repair encoding/whitespace/typos first, then re-check duplicates.`,
+      description: `'${col}' looks like a unique identifier but has repeated values, which often means two rows are near-duplicates that differ in one cell. Repair the encoding, whitespace, and typos first, then check duplicates again.`,
     });
   });
 
@@ -451,7 +451,7 @@ export function profileDataset(raw: {
     }
   });
 
-  // Outlier warnings per numeric column (informational — no automatic fix).
+  // Outlier warnings per numeric column (informational, no automatic fix).
   profiles.forEach((p) => {
     if (p.type === "number" && p.outlierCount && p.outlierCount > 0) {
       diagnostics.push({

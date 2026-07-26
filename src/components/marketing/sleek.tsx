@@ -14,7 +14,7 @@ import {
 export const SPRING = { type: "spring", stiffness: 140, damping: 24, mass: 1 } as const;
 export const SOFT = { type: "spring", stiffness: 90, damping: 20, mass: 1 } as const;
 
-/* Strong ease-out curve — the CSS built-ins are too weak. */
+/* Strong ease-out curve. The CSS built-ins are too weak. */
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 /* ─── Reveal: fade + rise on scroll-in, spring settle ─── */

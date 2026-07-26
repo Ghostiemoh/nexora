@@ -9,7 +9,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="min-h-dvh flex flex-col bg-background text-foreground relative">
-      {/* Calm ambient wash — one soft periwinkle glow up top */}
+      {/* Calm ambient wash: one soft periwinkle glow up top */}
       <div
         className="pointer-events-none fixed inset-x-0 top-0 h-[600px] z-0"
         style={{

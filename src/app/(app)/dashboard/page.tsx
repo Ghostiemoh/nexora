@@ -439,14 +439,14 @@ export default function DashboardPage() {
       {/* Manual review of rare values the auto-fixer couldn't safely merge */}
       <ValueReview dataset={activeDataset} />
 
-      {/* Auto dashboard — every chart the dataset supports, generated automatically */}
+      {/* Auto dashboard: every chart the dataset supports, generated automatically */}
       <div className="space-y-3 pt-2">
         <div className="flex items-end justify-between px-1">
           <div>
             <h2 className="text-lg font-semibold text-white tracking-tight">Auto dashboard</h2>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              KPIs, splits, distributions, and trends — built automatically from{" "}
-              <span className="font-mono text-primary">{activeDataset.name}</span>. No setup.
+              KPIs, splits, distributions, and trends, built automatically from{" "}
+              <span className="font-mono text-primary">{activeDataset.name}</span> without any setup.
             </p>
           </div>
         </div>

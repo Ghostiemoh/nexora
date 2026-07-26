@@ -12,8 +12,8 @@ export function TruncationBanner({ rows }: { rows: number }) {
       <p className="text-xs leading-relaxed">
         Only the first{" "}
         <span className="font-semibold tabular-nums">{rows.toLocaleString()}</span> rows were loaded
-        (import cap). Profiling stats, charts, and query results reflect this sample — if the source
-        file was sorted, they may not represent the full dataset.
+        (import cap). Profiling stats, charts, and query results all describe this sample. If the
+        source file was sorted, they may not represent the full dataset.
       </p>
     </div>
   );

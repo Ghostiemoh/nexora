@@ -1,4 +1,4 @@
-/* Calm periwinkle aurora — two slow drifting blurred blobs.
+/* Calm periwinkle aurora: two slow drifting blurred blobs.
    Adapted from 21st.dev's Aurora into Nexora's palette, kept subtle. */
 export function Aurora({ className = "" }: { className?: string }) {
   return (

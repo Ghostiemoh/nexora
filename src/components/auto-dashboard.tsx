@@ -260,7 +260,7 @@ export function AutoDashboard({
   if (spec.charts.length === 0 && spec.insights.length === 0) {
     return (
       <div className="nexora-card p-10 text-center text-sm text-on-surface-variant">
-        Not enough structure to chart yet — add a numeric, date, or category column.
+        Not enough structure to chart yet. Add a numeric, date, or category column.
       </div>
     );
   }
@@ -282,7 +282,7 @@ export function AutoDashboard({
             </button>
           </span>
           <span className="text-[11px] text-on-surface-variant">
-            {filteredRows?.length ?? 0} of {dataset.rows.length} rows — every card below reflects this filter
+            {filteredRows?.length ?? 0} of {dataset.rows.length} rows. Every card below reflects this filter.
           </span>
         </div>
       )}
