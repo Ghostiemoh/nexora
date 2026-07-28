@@ -85,7 +85,7 @@ export async function generateSqlFromEnglish(
 ): Promise<string> {
   const system = `You translate English questions into SQL for a small in-browser engine.
 ${ENGINE_DIALECT}
-Reply with the SQL statement ONLY — no explanation, no markdown fence.`;
+Reply with the SQL statement ONLY. Do not add an explanation or a markdown fence.`;
   const prompt = `${buildSchemaContext(dataset)}\n\nQuestion: ${english}\n\nSQL:`;
   return stripSqlFences(await callGemini(apiKey, prompt, system));
 }
@@ -101,7 +101,7 @@ ${ENGINE_DIALECT}
 Given a query and its problem, explain the cause in one short paragraph, then give the corrected/optimized query in a \`\`\`sql fence. Be concise.`;
   const situation = problem.error
     ? `The query failed with error: ${problem.error}`
-    : `The query succeeded but took ${problem.timeMs} ms — suggest how to make it cheaper (e.g. filter earlier, select fewer columns, add LIMIT).`;
+    : `The query succeeded but took ${problem.timeMs} ms. Suggest how to make it cheaper, for example by filtering earlier, selecting fewer columns, or adding a LIMIT.`;
   const prompt = `${buildSchemaContext(dataset, 3)}\n\nQuery:\n${sql}\n\n${situation}`;
   return callGemini(apiKey, prompt, system);
 }
@@ -117,7 +117,7 @@ Answer questions about the user's dataset using the schema, statistics, and samp
 Be precise and quantitative when the stats allow it; say clearly when a question needs computation you can't see.
 When a computed answer would need SQL, include the query in a \`\`\`sql fence using this dialect:
 ${ENGINE_DIALECT}
-Keep answers short — a paragraph or two, plain text.`;
+Keep answers short, a paragraph or two of plain text. Do not use em dashes.`;
 
   const history = recentTurns
     .slice(-6)
