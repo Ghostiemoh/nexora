@@ -20,6 +20,11 @@ import { TruncationBanner } from "@/components/truncation-banner";
 import { AutoDashboard } from "@/components/auto-dashboard";
 import { ValueReview } from "@/components/value-review";
 import { TransformTools } from "@/components/transform-tools";
+import { IntelligencePanel } from "@/components/intelligence-panel";
+import { ReportModule } from "@/components/report-module";
+import { CategoryExplorer } from "@/components/category-explorer";
+import { ChartStudio } from "@/components/chart-studio";
+import { PinnedCharts } from "@/components/pinned-charts";
 import { buildRecipe, serializeRecipe, parseRecipe, previewCleanOp, type OpPreview } from "@/lib/recipe";
 import type { CleanOp } from "@/lib/types";
 import { motion } from "framer-motion";
@@ -167,7 +172,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-2xl md:text-[28px] font-semibold text-white tracking-tight mb-1.5">
-            Dataset Doctor
+            Dashboard
           </h1>
           <p className="text-sm text-on-surface-variant flex items-center gap-2 flex-wrap">
             Health and cleaning controls for
@@ -332,7 +337,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* What the data means, before what the data is */}
+      <IntelligencePanel dataset={activeDataset} />
+
+      {/* The generated report, one click from the dashboard */}
+      <ReportModule dataset={activeDataset} />
+
       {/* Diagnostics + schema */}
+      <h2 className="text-lg font-semibold text-white tracking-tight px-1 -mb-3">
+        Health &amp; cleaning
+      </h2>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div className="lg:col-span-6 space-y-3">
           <h3 className="text-[13px] font-medium text-on-surface-variant px-1">Diagnostics</h3>
@@ -438,6 +452,24 @@ export default function DashboardPage() {
 
       {/* Manual review of rare values the auto-fixer couldn't safely merge */}
       <ValueReview dataset={activeDataset} />
+
+      {/* Every categorical column, with the count in each value */}
+      <CategoryExplorer dataset={activeDataset} />
+
+      {/* Pick any two columns and any of the eight chart types */}
+      <div className="space-y-3 pt-2">
+        <div className="px-1">
+          <h2 className="text-lg font-semibold text-white tracking-tight">Build a chart</h2>
+          <p className="text-xs text-on-surface-variant mt-0.5">
+            Nexora recommends the visualization that fits your column types, and you can switch to
+            any other that works.
+          </p>
+        </div>
+        <ChartStudio dataset={activeDataset} />
+      </div>
+
+      {/* Charts kept on this dashboard, including any a workflow restored */}
+      <PinnedCharts dataset={activeDataset} />
 
       {/* Auto dashboard: every chart the dataset supports, generated automatically */}
       <div className="space-y-3 pt-2">

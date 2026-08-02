@@ -8,6 +8,8 @@ import { profileDataset } from "./profile";
 import { generateSampleDataset } from "./sample";
 import { joinDatasets } from "./joiner";
 import { queryAxiom } from "./axiom";
+import { captureWorkflow, applyWorkflow, type WorkflowTemplate, type WorkflowStep } from "./workflow";
+import type { ChartConfig } from "./chart-recommend";
 import type {
   CleanOp, Dataset, Row, ChatMessage, TeamMember, SupportTicket,
   AppNotification, AuditEntry, ExportRecord, DbConnection,
@@ -24,6 +26,10 @@ interface NexoraState {
   exportHistory: ExportRecord[];
   connections: DbConnection[];
   settings: { geminiApiKey: string };
+  /** reusable analysis templates */
+  workflows: WorkflowTemplate[];
+  /** charts the user pinned to the dashboard, per dataset */
+  pinnedCharts: Record<string, ChartConfig[]>;
 
   // Platform actions
   notify: (level: AppNotification["level"], title: string, message: string) => void;
@@ -56,6 +62,19 @@ interface NexoraState {
     rightKey: string,
     joinType: "inner" | "left" | "right" | "full"
   ) => string;
+
+  // Chart Actions
+  pinChart: (datasetId: string, chart: ChartConfig) => void;
+  unpinChart: (datasetId: string, index: number) => void;
+
+  // Workflow Actions
+  /** capture the active dataset's applied fixes and pinned charts as a template */
+  saveWorkflow: (name: string, description: string, datasetId: string) => string;
+  updateWorkflow: (id: string, patch: Partial<Pick<WorkflowTemplate, "name" | "description" | "steps">>) => void;
+  removeWorkflow: (id: string) => void;
+  importWorkflow: (template: WorkflowTemplate) => string;
+  /** replay a template on a dataset; returns a human-readable outcome */
+  runWorkflow: (datasetId: string, workflowId: string) => string;
 
   // Chat Actions
   addChatMessage: (datasetId: string, text: string) => void;
@@ -185,6 +204,8 @@ export const useNexora = create<NexoraState>()(
       exportHistory: [],
       connections: [],
       settings: { geminiApiKey: "" },
+      workflows: [],
+      pinnedCharts: {},
 
       notify: (level, title, message) => {
         const n: AppNotification = {
@@ -539,6 +560,125 @@ export const useNexora = create<NexoraState>()(
         return id;
       },
 
+      pinChart: (datasetId, chart) => {
+        set((state) => {
+          const existing = state.pinnedCharts[datasetId] ?? [];
+          // Pinning the same view twice is always a mis-click.
+          const duplicate = existing.some(
+            (c) =>
+              c.type === chart.type &&
+              c.x === chart.x &&
+              c.y === chart.y &&
+              (c.series ?? null) === (chart.series ?? null) &&
+              c.agg === chart.agg
+          );
+          if (duplicate) return state;
+          return {
+            pinnedCharts: { ...state.pinnedCharts, [datasetId]: [...existing, chart] },
+          };
+        });
+      },
+
+      unpinChart: (datasetId, index) => {
+        set((state) => ({
+          pinnedCharts: {
+            ...state.pinnedCharts,
+            [datasetId]: (state.pinnedCharts[datasetId] ?? []).filter((_, i) => i !== index),
+          },
+        }));
+      },
+
+      saveWorkflow: (name, description, datasetId) => {
+        const dataset = get().datasets.find((d) => d.id === datasetId);
+        const id = `wfl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const template = captureWorkflow({
+          id,
+          name,
+          description,
+          source: dataset?.name ?? "unknown",
+          ops: dataset?.recipe ?? [],
+          charts: get().pinnedCharts[datasetId] ?? [],
+          at: Date.now(),
+        });
+
+        set((state) => ({ workflows: [template, ...state.workflows] }));
+        get().logAudit("workflow", `Saved workflow '${template.name}'.`, datasetId);
+        get().notify("success", "Workflow saved", `'${template.name}' can now be applied to any dataset.`);
+        return id;
+      },
+
+      updateWorkflow: (id, patch) => {
+        set((state) => ({
+          workflows: state.workflows.map((w) =>
+            w.id === id ? { ...w, ...patch, updatedAt: Date.now() } : w
+          ),
+        }));
+      },
+
+      removeWorkflow: (id) => {
+        const workflow = get().workflows.find((w) => w.id === id);
+        set((state) => ({ workflows: state.workflows.filter((w) => w.id !== id) }));
+        if (workflow) get().logAudit("workflow", `Deleted workflow '${workflow.name}'.`);
+      },
+
+      importWorkflow: (template) => {
+        // Re-key on import so a shared file can never overwrite a local template.
+        const id = `wfl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const imported: WorkflowTemplate = { ...template, id, updatedAt: Date.now() };
+        set((state) => ({ workflows: [imported, ...state.workflows] }));
+        get().logAudit("workflow", `Imported workflow '${imported.name}'.`);
+        return id;
+      },
+
+      runWorkflow: (datasetId, workflowId) => {
+        const dataset = get().datasets.find((d) => d.id === datasetId);
+        const workflow = get().workflows.find((w) => w.id === workflowId);
+        if (!dataset) return "Dataset not found";
+        if (!workflow) return "Workflow not found";
+
+        pushUndo(datasetId, {
+          rows: dataset.rows,
+          columns: dataset.columns,
+          changelog: dataset.changelog,
+          recipe: dataset.recipe ?? [],
+        });
+
+        const run = applyWorkflow(dataset.rows, dataset.columns, workflow);
+        const cleanOps = workflow.steps
+          .filter((s): s is WorkflowStep & { op: CleanOp } => s.kind === "clean" && !!s.op)
+          .map((s) => s.op);
+
+        const logMsg =
+          `Applied workflow '${workflow.name}': ${run.applied} step(s) run` +
+          (run.skipped > 0 ? `, ${run.skipped} skipped (missing columns)` : "");
+
+        const updated = profileDataset({
+          id: dataset.id,
+          name: dataset.name,
+          columns: run.columns,
+          rows: run.rows,
+          createdAt: dataset.createdAt,
+          changelog: [...dataset.changelog, logMsg],
+          truncated: dataset.truncated,
+        });
+        updated.recipe = [...(dataset.recipe ?? []), ...cleanOps];
+
+        set((state) => ({
+          datasets: state.datasets.map((d) => (d.id === datasetId ? updated : d)),
+          pinnedCharts: { ...state.pinnedCharts, [datasetId]: run.charts },
+        }));
+
+        get().logAudit("workflow", logMsg, datasetId);
+        get().notify(
+          run.skipped > 0 ? "warning" : "success",
+          "Workflow applied",
+          run.skipped > 0
+            ? `${logMsg}. Skipped: ${run.skippedLabels.slice(0, 3).join("; ")}.`
+            : `${logMsg}. Health is now ${updated.health.overall}%.`
+        );
+        return logMsg;
+      },
+
       addChatMessage: (datasetId, text) => {
         const dataset = get().datasets.find((d) => d.id === datasetId);
         const userMsg: ChatMessage = {
@@ -637,7 +777,8 @@ export const useNexora = create<NexoraState>()(
       // v2: profiling model gained accuracy/quantiles/outliers/date-range.
       // v3: detectors for index columns, mojibake, casing, category variants,
       // and Excel serial dates. Re-profile persisted datasets on rehydrate.
-      version: 3,
+      // v4: workflow templates and pinned charts.
+      version: 4,
       migrate: (persisted, version) => {
         const state = persisted as Partial<NexoraState> | undefined;
         if (state?.datasets && version < 3) {
@@ -653,6 +794,10 @@ export const useNexora = create<NexoraState>()(
             })
           );
         }
+        if (state && version < 4) {
+          state.workflows = state.workflows ?? [];
+          state.pinnedCharts = state.pinnedCharts ?? {};
+        }
         return state as NexoraState;
       },
       partialize: (state) => ({
@@ -666,6 +811,8 @@ export const useNexora = create<NexoraState>()(
         exportHistory: state.exportHistory,
         connections: state.connections,
         settings: state.settings,
+        workflows: state.workflows,
+        pinnedCharts: state.pinnedCharts,
       }),
     }
   )

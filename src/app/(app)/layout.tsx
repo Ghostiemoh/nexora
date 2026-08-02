@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TopNavbar } from "@/components/layout/top-navbar";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +18,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
         <TopNavbar />
+        <div className="no-print">
+          <Breadcrumbs />
+        </div>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

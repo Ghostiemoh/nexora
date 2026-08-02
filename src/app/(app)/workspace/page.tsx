@@ -228,7 +228,7 @@ export default function WorkspacePage() {
   } as const;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-black select-none">
+    <div className="flex h-full min-h-0 overflow-hidden bg-black select-none">
       
       {/* LEFT: Data Exploration Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top_left,rgba(24,28,41,0.5),transparent_60%)] p-6 space-y-6 overflow-hidden">

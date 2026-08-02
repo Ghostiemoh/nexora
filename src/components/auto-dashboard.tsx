@@ -20,6 +20,7 @@ import { Lightbulb, FilterX } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Dataset } from "@/lib/types";
 import { buildDashboard, type ChartSpec, type KpiSpec } from "@/lib/auto-dashboard";
+import { CHART_PALETTE } from "./chart-renderer";
 
 export interface CrossFilter {
   column: string;
@@ -28,26 +29,18 @@ export interface CrossFilter {
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
-const PALETTE = [
-  "#c0c1ff", // primary
-  "#34d399", // emerald
-  "#fbbf24", // amber
-  "#38bdf8", // sky
-  "#f472b6", // pink
-  "#a78bfa", // violet
-  "#fb923c", // orange
-  "#4ade80", // green
-];
+// One palette for every chart in the product, defined next to the renderer.
+const PALETTE = CHART_PALETTE;
 
-const AXIS_TICK = { fill: "#8a91a8", fontSize: 11 } as const;
+const AXIS_TICK = { fill: "#b7bfba", fontSize: 11 } as const;
 const GRID_STROKE = "rgba(255,255,255,0.06)";
 
 const TOOLTIP_STYLE = {
-  backgroundColor: "#11182b",
-  border: "1px solid rgba(255,255,255,0.1)",
+  backgroundColor: "#1b2020",
+  border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: "10px",
   fontSize: "12px",
-  color: "#dae2fd",
+  color: "#f1f2ed",
 } as const;
 
 function formatKpi(kpi: KpiSpec): string {
@@ -118,7 +111,7 @@ function ChartCard({ spec, index, activeFilter, onFilter, animated = true }: Cha
                 innerRadius="52%"
                 outerRadius="78%"
                 paddingAngle={2}
-                stroke="#0b1326"
+                stroke="#101315"
                 strokeWidth={2}
                 onClick={(entry) => {
                   const name = (entry as { name?: string }).name;
@@ -139,7 +132,7 @@ function ChartCard({ spec, index, activeFilter, onFilter, animated = true }: Cha
                 verticalAlign="bottom"
                 iconType="circle"
                 iconSize={8}
-                wrapperStyle={{ fontSize: 11, color: "#8a91a8" }}
+                wrapperStyle={{ fontSize: 11, color: "#b7bfba" }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -179,7 +172,7 @@ function ChartCard({ spec, index, activeFilter, onFilter, animated = true }: Cha
                 ).map((name, i) => (
                   <Cell
                     key={i}
-                    fill={spec.kind === "histogram" ? "#c0c1ff" : PALETTE[i % PALETTE.length]}
+                    fill={spec.kind === "histogram" ? PALETTE[0] : PALETTE[i % PALETTE.length]}
                     fillOpacity={
                       spec.kind === "histogram" ? 0.85 : dimmed(name) ? 0.25 : 1
                     }
@@ -196,8 +189,8 @@ function ChartCard({ spec, index, activeFilter, onFilter, animated = true }: Cha
             <AreaChart data={spec.data} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
               <defs>
                 <linearGradient id={`grad_${spec.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#c0c1ff" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#c0c1ff" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={PALETTE[0]} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={PALETTE[0]} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
@@ -214,7 +207,7 @@ function ChartCard({ spec, index, activeFilter, onFilter, animated = true }: Cha
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#c0c1ff"
+                stroke={PALETTE[0]}
                 strokeWidth={2}
                 fill={`url(#grad_${spec.id})`}
                 dot={spec.data.length <= 31}

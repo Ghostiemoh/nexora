@@ -71,7 +71,7 @@ function nonNullCount(p: ColumnProfile, rowCount: number): number {
   return rowCount - p.missingCount;
 }
 
-function numericColumns(ds: Dataset): ColumnProfile[] {
+export function numericColumns(ds: Dataset): ColumnProfile[] {
   return ds.profiles.filter((p) => {
     if (p.type !== "number" || isIdentifierName(p.name)) return false;
     // Row indexes in disguise (0..n serials) are not measures: summing or
@@ -83,13 +83,13 @@ function numericColumns(ds: Dataset): ColumnProfile[] {
   });
 }
 
-function dateColumns(ds: Dataset): ColumnProfile[] {
+export function dateColumns(ds: Dataset): ColumnProfile[] {
   return ds.profiles.filter((p) => p.type === "date");
 }
 
 /** Category-like columns: profiled categories/booleans, plus low-cardinality
  *  strings the profiler left as plain text (still pivotable, Excel-style). */
-function categoricalColumns(ds: Dataset): ColumnProfile[] {
+export function categoricalColumns(ds: Dataset): ColumnProfile[] {
   const rowCount = ds.rows.length;
   return ds.profiles.filter((p) => {
     if (p.type === "category" || p.type === "boolean") return p.uniqueCount >= 2;

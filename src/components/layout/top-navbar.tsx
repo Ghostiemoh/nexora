@@ -4,18 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Bell, Menu, Plus, Search, Settings, X } from "lucide-react";
+import { Bell, Home, Menu, Plus, Search, Settings, X } from "lucide-react";
 import { useNexora } from "../../lib/store";
 import { AuthModal } from "./auth-modal";
+import { NexoraMark } from "./nexora-mark";
+import { PRIMARY_NAV, SECONDARY_NAV, HOME_HREF, isNavActive } from "../../lib/nav";
 
-const LINKS = [
-  { name: "Dashboard", href: "/dashboard" },
-  { name: "Workspace", href: "/workspace" },
-  { name: "SQL Lab", href: "/sql-lab" },
-  { name: "OCR Center", href: "/ocr-center" },
-  { name: "Reports", href: "/reports" },
-  { name: "Support", href: "/support" },
-];
+/** The routes that fit across the top bar on a laptop. The rest stay reachable
+ *  from the sidebar and the mobile sheet. */
+const TOP_BAR_LINKS = PRIMARY_NAV.slice(0, 5);
 
 function levelDot(level: string): string {
   if (level === "error") return "bg-red-400";
@@ -35,6 +32,7 @@ export function TopNavbar() {
   const [isBellOpen, setIsBellOpen] = useState(false);
 
   const unread = notifications.filter((n) => !n.read).length;
+  const atHome = pathname === HOME_HREF;
 
   const toggleBell = () => {
     setIsBellOpen((open) => {
@@ -53,10 +51,36 @@ export function TopNavbar() {
             aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={isMobileMenuOpen}
             aria-controls="mobile-navigation"
-            className="press flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface lg:hidden"
+            className="press flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface lg:hidden"
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
+
+          {/* The mark is a home button on every screen size. */}
+          <Link
+            href={HOME_HREF}
+            aria-label="Nexora home"
+            aria-current={atHome ? "page" : undefined}
+            className="press flex h-10 w-10 items-center justify-center rounded-lg hover:bg-white/5 lg:hidden"
+          >
+            <NexoraMark className="h-5 w-5" />
+          </Link>
+
+          {/* On desktop the sidebar carries the mark, so this is an explicit
+              Home control instead: one click back from anywhere. */}
+          <Link
+            href={HOME_HREF}
+            aria-label="Go to dashboard home"
+            aria-current={atHome ? "page" : undefined}
+            className={`press hidden h-10 w-10 items-center justify-center rounded-lg lg:flex ${
+              atHome
+                ? "border border-primary/30 bg-primary/10 text-primary"
+                : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+            }`}
+          >
+            <Home className="h-[18px] w-[18px]" aria-hidden="true" />
+          </Link>
+
           <div className="relative hidden h-10 w-full max-w-xs items-center rounded-lg border border-white/[0.08] bg-black/15 px-3 md:flex focus-within:border-primary/60">
             <Search className="h-4 w-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
             <input
@@ -68,13 +92,18 @@ export function TopNavbar() {
           </div>
         </div>
 
-        <div className="hidden items-center gap-1 rounded-lg border border-white/[0.07] bg-black/10 p-1 lg:flex">
-          {LINKS.slice(0, 4).map((link) => {
-            const active = pathname === link.href;
+        <div className="hidden items-center gap-1 rounded-lg border border-white/[0.07] bg-black/10 p-1 xl:flex">
+          {TOP_BAR_LINKS.map((link) => {
+            const active = isNavActive(link.href, pathname);
             return (
-              <Link key={link.href} href={link.href} className={`press relative flex h-9 items-center rounded-md px-3 text-[13px] font-medium ${active ? "text-on-surface" : "text-on-surface-variant hover:text-on-surface"}`}>
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`press relative flex h-9 items-center rounded-md px-3 text-[13px] font-medium ${active ? "text-on-surface" : "text-on-surface-variant hover:text-on-surface"}`}
+              >
                 {active && <motion.span layoutId="nav-active" transition={{ type: "spring", stiffness: 420, damping: 34 }} className="absolute inset-0 rounded-md bg-primary/15" />}
-                <span className="relative z-10">{link.name}</span>
+                <span className="relative z-10">{link.label}</span>
               </Link>
             );
           })}
@@ -89,7 +118,7 @@ export function TopNavbar() {
             <button
               type="button"
               onClick={toggleBell}
-              className="press relative flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+              className="press relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
               aria-label={`Notifications${unread > 0 ? ` (${unread} unread)` : ""}`}
               aria-expanded={isBellOpen}
             >
@@ -135,19 +164,31 @@ export function TopNavbar() {
           <Link href="/settings" className="press flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface" aria-label="Settings">
             <Settings className="h-[18px] w-[18px]" aria-hidden="true" />
           </Link>
-          <button type="button" onClick={() => setIsAuthOpen(true)} aria-label="Open local profile" className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-[12px] font-semibold text-primary">
+          <button type="button" onClick={() => setIsAuthOpen(true)} aria-label="Open local profile" className="press flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-[12px] font-semibold text-primary">
             M
           </button>
         </div>
 
         {isMobileMenuOpen && (
-          <div id="mobile-navigation" className="glass-panel absolute left-0 right-0 top-[calc(100%+0.5rem)] rounded-xl p-2 shadow-xl lg:hidden">
+          <div id="mobile-navigation" className="glass-panel absolute left-0 right-0 top-[calc(100%+0.5rem)] max-h-[70vh] overflow-y-auto rounded-xl p-2 shadow-xl lg:hidden">
             <div className="grid grid-cols-2 gap-1" role="menu">
-              {LINKS.map((link) => (
-                <Link key={link.href} href={link.href} onClick={() => setIsMobileMenuOpen(false)} role="menuitem" className={`press flex min-h-10 items-center rounded-lg px-3 text-sm ${pathname === link.href ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"}`}>
-                  {link.name}
-                </Link>
-              ))}
+              {[...PRIMARY_NAV, ...SECONDARY_NAV].map((link) => {
+                const active = isNavActive(link.href, pathname);
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    role="menuitem"
+                    aria-current={active ? "page" : undefined}
+                    className={`press flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm ${active ? "bg-primary/15 text-primary" : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"}`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {link.label}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}
