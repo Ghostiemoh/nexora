@@ -20,6 +20,7 @@ import {
 import { motion } from "framer-motion";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
+import { UploadDropzone } from "@/components/upload-dropzone";
 import {
   summarizeWorkflow,
   serializeWorkflow,
@@ -97,7 +98,7 @@ export default function WorkflowsPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-      className="mx-auto max-w-[1100px] space-y-7 p-6 md:p-8"
+      className="mx-auto max-w-[1100px] space-y-7 p-4 sm:p-6 md:p-8"
     >
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
@@ -194,9 +195,15 @@ export default function WorkflowsPage() {
             </div>
           </>
         ) : (
-          <p className="mt-1 text-[12px] text-on-surface-variant">
-            Load a dataset first, then save what you did to it as a reusable template.
-          </p>
+          <>
+            <p className="mt-1 text-[12px] text-on-surface-variant">
+              A workflow is a recording of what you did to a dataset. Load one first, clean it, then
+              come back and save those steps as a template.
+            </p>
+            <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/15">
+              <UploadDropzone />
+            </div>
+          </>
         )}
       </section>
 
@@ -362,8 +369,11 @@ function WorkflowCard({
           </li>
         )}
         {template.steps.map((step, i) => (
-          <li key={step.id} className="flex items-center gap-3 px-5 py-2.5">
-            <GripVertical className="h-3.5 w-3.5 shrink-0 text-on-surface-variant/50" aria-hidden="true" />
+          <li key={step.id} className="flex items-center gap-2.5 px-4 py-2.5 sm:gap-3 sm:px-5">
+            <GripVertical
+              className="hidden h-3.5 w-3.5 shrink-0 text-on-surface-variant/50 sm:block"
+              aria-hidden="true"
+            />
             <span className="w-5 shrink-0 text-right font-mono text-[11px] tabular-nums text-on-surface-variant">
               {i + 1}
             </span>

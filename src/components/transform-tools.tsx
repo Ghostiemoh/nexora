@@ -103,7 +103,7 @@ export function TransformTools({ dataset }: { dataset: Dataset }) {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <input
                   value={frFind}
                   onChange={(e) => setFrFind(e.target.value)}
@@ -175,7 +175,7 @@ export function TransformTools({ dataset }: { dataset: Dataset }) {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <select value={spPreset} onChange={(e) => setSpPreset(e.target.value)} className={`${inputCls} cursor-pointer`}>
                   {DELIMITER_PRESETS.map((d) => (
                     <option key={d.value} value={d.value}>{d.label}</option>

@@ -9,6 +9,9 @@ export default function SettingsPage() {
   const mounted = useMounted();
   const datasets = useNexora((state) => state.datasets);
   const removeDataset = useNexora((state) => state.removeDataset);
+  const onboardingDismissed = useNexora((state) => state.onboardingDismissed);
+  const dismissOnboarding = useNexora((state) => state.dismissOnboarding);
+  const restoreOnboarding = useNexora((state) => state.restoreOnboarding);
   const connections = useNexora((state) => state.connections);
   const settings = useNexora((state) => state.settings);
   const setGeminiApiKey = useNexora((state) => state.setGeminiApiKey);
@@ -90,6 +93,24 @@ export default function SettingsPage() {
         <p className="text-[11px] font-mono text-on-surface-variant/70">
           Status: {settings.geminiApiKey ? "AI features enabled" : "AI features off. The local rule-based analyst still works."}
         </p>
+      </section>
+
+      <section className="nexora-card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-label text-primary">Guidance</p>
+          <h2 className="mt-1 text-lg font-semibold text-on-surface">Getting started checklist</h2>
+          <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+            The four-step path from a loaded file to an exported report, shown at the top of the
+            dashboard. {onboardingDismissed ? "Currently hidden." : "Currently shown."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => (onboardingDismissed ? restoreOnboarding() : dismissOnboarding())}
+          className="press h-10 shrink-0 cursor-pointer rounded-lg border border-outline-variant px-3.5 text-sm font-medium text-on-surface hover:bg-white/[0.06]"
+        >
+          {onboardingDismissed ? "Show it again" : "Hide it"}
+        </button>
       </section>
 
       <section className="nexora-card overflow-hidden">

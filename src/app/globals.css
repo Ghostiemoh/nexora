@@ -620,6 +620,14 @@ body {
   color: var(--on-primary);
 }
 
+/* A phone screen is the narrowest thing this runs on, and nothing is allowed to
+   push it sideways. Wide content scrolls inside its own container instead. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 :where(a, button, input, select, textarea):focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;

@@ -228,15 +228,17 @@ export default function WorkspacePage() {
   } as const;
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-black select-none">
-      
+    // Below lg the grid and the analyst stack; a 420px chat pane is wider than
+    // a phone, so side-by-side is not an option there.
+    <div className="flex min-h-0 flex-col bg-black select-none lg:h-full lg:flex-row lg:overflow-hidden">
+
       {/* LEFT: Data Exploration Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top_left,rgba(24,28,41,0.5),transparent_60%)] p-6 space-y-6 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col space-y-5 bg-[radial-gradient(ellipse_at_top_left,rgba(24,28,41,0.5),transparent_60%)] p-4 sm:p-6 lg:space-y-6 lg:overflow-hidden">
         
         {activeDataset.truncated && <TruncationBanner rows={activeDataset.rows.length} />}
 
         {/* TOP BENTO BAR: High-density Metadata Widget */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-surface-container-low/40 border border-white/5 backdrop-blur-md rounded-xl p-4 shadow-xl shrink-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 bg-surface-container-low/40 border border-white/5 backdrop-blur-md rounded-xl p-4 shadow-xl shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-4 h-4 text-primary" />
@@ -247,7 +249,7 @@ export default function WorkspacePage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3 border-l border-white/5 pl-4">
+          <div className="flex items-center gap-3 sm:border-l sm:border-white/5 sm:pl-4">
             <div className="w-9 h-9 rounded-lg bg-zinc-800/50 border border-white/5 flex items-center justify-center shrink-0">
               <Database className="w-4 h-4 text-zinc-400" />
             </div>
@@ -259,7 +261,7 @@ export default function WorkspacePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 border-l border-white/5 pl-4">
+          <div className="flex items-center gap-3 sm:border-l sm:border-white/5 sm:pl-4">
             <div className="w-9 h-9 rounded-lg bg-tertiary/10 border border-tertiary/20 flex items-center justify-center shrink-0">
               <Activity className="w-4 h-4 text-tertiary" />
             </div>
@@ -271,7 +273,7 @@ export default function WorkspacePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 border-l border-white/5 pl-4">
+          <div className="flex items-center gap-3 sm:border-l sm:border-white/5 sm:pl-4">
             <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <TrendingUp className="w-4 h-4 text-emerald-400" />
             </div>
@@ -283,7 +285,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* Tab Selection & Search Control Bar */}
-        <div className="flex justify-between items-center shrink-0">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
           {/* Apple style sliding highlight switcher */}
           <div className="flex bg-surface-container-low/60 rounded-xl p-1 border border-white/5 backdrop-blur-sm shadow-[inset_0_1px_rgba(255,255,255,0.03)] relative overflow-hidden">
             <button
@@ -293,7 +295,8 @@ export default function WorkspacePage() {
               }`}
             >
               <TableIcon className="w-4 h-4" />
-              Data Table View
+              <span className="sm:hidden">Table</span>
+              <span className="hidden sm:inline">Data Table View</span>
               {activeTab === "table" && (
                 <motion.div
                   layoutId="active-workspace-tab-pill"
@@ -309,7 +312,8 @@ export default function WorkspacePage() {
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              Category Chart View
+              <span className="sm:hidden">Chart</span>
+              <span className="hidden sm:inline">Category Chart View</span>
               {activeTab === "chart" && (
                 <motion.div
                   layoutId="active-workspace-tab-pill"
@@ -321,7 +325,7 @@ export default function WorkspacePage() {
           </div>
 
           {activeTab === "table" && (
-            <div className="relative w-72">
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
               <input
                 type="text"
@@ -338,7 +342,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* Core Container: Data Grid or Category Chart */}
-        <div className="flex-1 min-h-0 bg-surface-container-low/40 border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden flex flex-col relative shadow-2xl">
+        <div className="flex min-h-[60vh] flex-1 flex-col relative overflow-hidden rounded-2xl border border-white/5 bg-surface-container-low/40 shadow-2xl backdrop-blur-md lg:min-h-0">
           <AnimatePresence mode="wait">
             {activeTab === "table" ? (
               /* DATA GRID - SLIDING CONTAINER */
@@ -445,7 +449,7 @@ export default function WorkspacePage() {
                 transition={{ duration: 0.22, ease: "easeInOut" }}
                 className="flex-1 p-6 flex flex-col space-y-6 overflow-hidden"
               >
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-4">
                   <div>
                     <h4 className="font-headline-md text-[16px] font-semibold text-white">
                       {isNumericColumn ? "Numeric Distribution" : "Categorical Distribution"}
@@ -507,7 +511,7 @@ export default function WorkspacePage() {
                           const percent = Math.round((bin.count / maxVal) * 100);
                           return (
                             <div key={idx} className="flex items-center gap-3 text-[11px] font-mono">
-                              <span className="w-28 shrink-0 text-right text-zinc-400 tabular-nums">{bin.label}</span>
+                              <span className="w-20 shrink-0 text-right text-zinc-400 tabular-nums sm:w-28">{bin.label}</span>
                               <div className="flex-1 bg-zinc-900/60 h-5 rounded-md overflow-hidden relative border border-white/5">
                                 <motion.div
                                   className="h-full bg-gradient-to-r from-primary/10 to-primary/25 border-r-2 border-primary"
@@ -559,7 +563,7 @@ export default function WorkspacePage() {
       </div>
 
       {/* RIGHT: Conversational AI Analyst */}
-      <div className="w-[420px] flex flex-col border-l border-white/5 bg-[linear-gradient(to_bottom,rgba(13,17,29,0.7),rgba(6,9,17,0.8))] shrink-0 overflow-hidden relative">
+      <div className="relative flex h-[70vh] w-full shrink-0 flex-col overflow-hidden border-t border-white/5 bg-[linear-gradient(to_bottom,rgba(13,17,29,0.7),rgba(6,9,17,0.8))] lg:h-auto lg:w-[420px] lg:border-l lg:border-t-0">
         
         {/* Chat Header */}
         <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center shrink-0 backdrop-blur-md">

@@ -47,7 +47,7 @@ export function PinnedCharts({ dataset }: { dataset: Dataset }) {
                   type="button"
                   onClick={() => unpinChart(dataset.id, i)}
                   aria-label="Unpin this chart"
-                  className="press flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface"
+                  className="press flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface sm:h-7 sm:w-7"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>

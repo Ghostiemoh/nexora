@@ -167,10 +167,12 @@ export default function SqlLabPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="flex h-[calc(100vh-64px)] select-none w-full"
+      // Below lg the two panes stack and the page scrolls normally; a 420px
+      // pane cannot share a phone screen with anything.
+      className="flex w-full flex-col select-none lg:h-full lg:flex-row lg:overflow-hidden"
     >
       {/* LEFT PANEL: Schema Explorer and Code Editor */}
-      <div className="w-[420px] flex flex-col border-r border-white/5 bg-zinc-950/20 shrink-0 p-6 space-y-6 overflow-y-auto backdrop-blur-sm">
+      <div className="flex w-full shrink-0 flex-col space-y-6 border-b border-white/5 bg-zinc-950/20 p-5 backdrop-blur-sm sm:p-6 lg:w-[420px] lg:border-b-0 lg:border-r lg:overflow-y-auto">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight leading-tight mb-1">
             SQL Lab Sandbox
@@ -224,7 +226,8 @@ export default function SqlLabPage() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 bg-black/40 border border-white/5 rounded-2xl p-4 flex flex-col font-mono text-xs relative group focus-within:border-primary/50 transition-colors shadow-inner">
+          {/* min-h keeps the editor usable when the column has no fixed height */}
+          <div className="flex-1 min-h-[220px] bg-black/40 border border-white/5 rounded-2xl p-4 flex flex-col font-mono text-xs relative group focus-within:border-primary/50 transition-colors shadow-inner lg:min-h-0">
             <textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -313,7 +316,7 @@ export default function SqlLabPage() {
       </div>
 
       {/* RIGHT PANEL: Query Output Results Table */}
-      <div className="flex-1 flex flex-col bg-black/10 overflow-hidden">
+      <div className="flex min-h-[60vh] min-w-0 flex-1 flex-col bg-black/10 lg:min-h-0 lg:overflow-hidden">
         {/* Output Header Status */}
         <div className="px-6 py-4 border-b border-white/5 bg-zinc-900/30 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2">

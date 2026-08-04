@@ -53,6 +53,12 @@ function buildCategoryColumns(dataset: Dataset): CategoryColumn[] {
   return out.sort((a, b) => a.distinct - b.distinct);
 }
 
+/** Whether this dataset has anything to show in the category explorer. Callers
+ *  use it to decide whether to offer a link to a section that would be empty. */
+export function hasCategoryColumns(dataset: Dataset): boolean {
+  return buildCategoryColumns(dataset).length > 0;
+}
+
 export function CategoryExplorer({ dataset }: { dataset: Dataset }) {
   const columns = useMemo(() => buildCategoryColumns(dataset), [dataset]);
   const [openColumn, setOpenColumn] = useState<string | null>(columns[0]?.name ?? null);
@@ -198,16 +204,18 @@ function CategoryCard({
                     >
                       {v.name}
                     </span>
-                    <span className="relative h-2 w-24 shrink-0 overflow-hidden rounded-full bg-black/40 sm:w-40">
+                    {/* The bar is the first thing to go: on a phone the value
+                        name needs the room more than the visual does. */}
+                    <span className="relative hidden h-2 w-24 shrink-0 overflow-hidden rounded-full bg-black/40 sm:block sm:w-40">
                       <span
                         className="absolute inset-y-0 left-0 rounded-full bg-primary/70"
                         style={{ width: `${Math.max(2, (v.value / maxCount) * 100)}%` }}
                       />
                     </span>
-                    <span className="w-14 shrink-0 text-right text-[12px] font-medium tabular-nums text-white">
+                    <span className="w-12 shrink-0 text-right text-[12px] font-medium tabular-nums text-white sm:w-14">
                       {v.value.toLocaleString()}
                     </span>
-                    <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-on-surface-variant">
+                    <span className="w-11 shrink-0 text-right text-[11px] tabular-nums text-on-surface-variant sm:w-12">
                       {share.toFixed(1)}%
                     </span>
                   </li>

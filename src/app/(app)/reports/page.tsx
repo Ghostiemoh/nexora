@@ -96,7 +96,7 @@ export default function ReportsPage() {
               findings, root causes, and recommendations.
             </p>
           </div>
-          <div className="nexora-card border-dashed p-6">
+          <div className="nexora-card">
             <UploadDropzone />
           </div>
         </div>
@@ -176,7 +176,7 @@ export default function ReportsPage() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 20 }}
-      className="mx-auto max-w-4xl space-y-7 p-6 md:p-8"
+      className="mx-auto max-w-4xl space-y-7 p-4 sm:p-6 md:p-8"
     >
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 border-b border-white/[0.06] pb-6 md:flex-row md:items-end">
@@ -272,7 +272,7 @@ export default function ReportsPage() {
                       onClick={() => resetSection(section.id)}
                       title="Restore the generated wording"
                       aria-label={`Restore generated wording for ${section.title}`}
-                      className="press flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface"
+                      className="press flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface sm:h-8 sm:w-8"
                     >
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
@@ -289,7 +289,7 @@ export default function ReportsPage() {
                         : `Include ${section.title} in exports`
                     }
                     aria-pressed={!section.include}
-                    className="press flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface"
+                    className="press flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface sm:h-8 sm:w-8"
                   >
                     {section.include ? (
                       <Eye className="h-3.5 w-3.5" aria-hidden="true" />
@@ -302,7 +302,7 @@ export default function ReportsPage() {
                     onClick={() => setEditingId(isEditing ? null : section.id)}
                     title={isEditing ? "Done editing" : "Edit this section"}
                     aria-label={isEditing ? "Done editing" : `Edit ${section.title}`}
-                    className={`press flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors ${
+                    className={`press flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors sm:h-8 sm:w-8 ${
                       isEditing
                         ? "bg-primary/15 text-primary"
                         : "text-on-surface-variant hover:bg-white/[0.06] hover:text-on-surface"

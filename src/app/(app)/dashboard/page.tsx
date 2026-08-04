@@ -22,9 +22,21 @@ import { ValueReview } from "@/components/value-review";
 import { TransformTools } from "@/components/transform-tools";
 import { IntelligencePanel } from "@/components/intelligence-panel";
 import { ReportModule } from "@/components/report-module";
-import { CategoryExplorer } from "@/components/category-explorer";
+import { CategoryExplorer, hasCategoryColumns } from "@/components/category-explorer";
 import { ChartStudio } from "@/components/chart-studio";
 import { PinnedCharts } from "@/components/pinned-charts";
+import { GettingStarted } from "@/components/getting-started";
+import { SectionNav, type SectionLink } from "@/components/section-nav";
+
+const SECTIONS: SectionLink[] = [
+  { id: "overview", label: "Overview" },
+  { id: "findings", label: "Findings" },
+  { id: "report", label: "Report" },
+  { id: "health", label: "Health & cleaning" },
+  { id: "categories", label: "Categories" },
+  { id: "charts", label: "Build a chart" },
+  { id: "auto-dashboard", label: "Auto dashboard" },
+];
 import { buildRecipe, serializeRecipe, parseRecipe, previewCleanOp, type OpPreview } from "@/lib/recipe";
 import type { CleanOp } from "@/lib/types";
 import { motion } from "framer-motion";
@@ -47,6 +59,15 @@ export default function DashboardPage() {
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [recipeError, setRecipeError] = useState<string | null>(null);
   const recipeInputRef = useRef<HTMLInputElement>(null);
+
+  // Only offer a jump chip for a section that this dataset actually renders.
+  const sections = useMemo(
+    () =>
+      SECTIONS.filter(
+        (s) => s.id !== "categories" || (activeDataset !== null && hasCategoryColumns(activeDataset))
+      ),
+    [activeDataset]
+  );
 
   // Dry-run every fixable diagnostic so each card shows its blast radius.
   const previews = useMemo(() => {
@@ -82,14 +103,31 @@ export default function DashboardPage() {
             </div>
             <h2 className="text-2xl font-semibold tracking-tight text-white">Start with a dataset</h2>
             <p className="text-sm text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              Drop a CSV, TSV, JSON, or Excel file. Nexora profiles it, flags anomalies, and gets it
-              ready to query, all in your browser.
+              Drop a CSV, TSV, JSON, or Excel file. Never used Nexora before? Load the sample below
+              and follow the four steps it puts on your dashboard.
             </p>
           </div>
 
-          <div className="nexora-card p-6 border-dashed">
+          <div className="nexora-card">
             <UploadDropzone />
           </div>
+
+          {/* What happens after the upload, so the first click is not a leap of faith */}
+          <ol className="grid grid-cols-1 gap-2 text-left sm:grid-cols-3">
+            {[
+              ["Nexora reads it", "Types, ranges, and gaps profiled on load."],
+              ["It tells you what matters", "Trends, anomalies, risks, and what to do."],
+              ["You export the report", "PDF, Word, or Markdown, ready to send."],
+            ].map(([title, detail], i) => (
+              <li key={title} className="nexora-card p-3.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <p className="mt-2 text-[12.5px] font-medium text-white">{title}</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-on-surface-variant">{detail}</p>
+              </li>
+            ))}
+          </ol>
 
           <p className="text-[11px] text-on-surface-variant/70">
             Runs 100% locally. Nothing leaves your machine.
@@ -166,7 +204,7 @@ export default function DashboardPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="p-6 md:p-8 max-w-[1440px] mx-auto space-y-7 select-none"
+      className="p-4 sm:p-6 md:p-8 max-w-[1440px] mx-auto space-y-7 select-none"
     >
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -257,8 +295,15 @@ export default function DashboardPage() {
 
       {activeDataset.truncated && <TruncationBanner rows={activeDataset.rows.length} />}
 
+      {/* First-run path: load, clean, chart, export */}
+      <GettingStarted dataset={activeDataset} />
+
+      <SectionNav sections={sections} />
+
       {/* Overview */}
-      <h2 className="text-lg font-semibold text-white tracking-tight px-1 -mb-3">Overview</h2>
+      <h2 id="overview" className="scroll-mt-20 text-lg font-semibold text-white tracking-tight px-1 -mb-3">
+        Overview
+      </h2>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Health gauge */}
         <div className="nexora-card lg:col-span-4 p-6 flex flex-col">
@@ -338,13 +383,17 @@ export default function DashboardPage() {
       </div>
 
       {/* What the data means, before what the data is */}
-      <IntelligencePanel dataset={activeDataset} />
+      <div id="findings" className="scroll-mt-20">
+        <IntelligencePanel dataset={activeDataset} />
+      </div>
 
       {/* The generated report, one click from the dashboard */}
-      <ReportModule dataset={activeDataset} />
+      <div id="report" className="scroll-mt-20">
+        <ReportModule dataset={activeDataset} />
+      </div>
 
       {/* Diagnostics + schema */}
-      <h2 className="text-lg font-semibold text-white tracking-tight px-1 -mb-3">
+      <h2 id="health" className="scroll-mt-20 text-lg font-semibold text-white tracking-tight px-1 -mb-3">
         Health &amp; cleaning
       </h2>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -454,10 +503,12 @@ export default function DashboardPage() {
       <ValueReview dataset={activeDataset} />
 
       {/* Every categorical column, with the count in each value */}
-      <CategoryExplorer dataset={activeDataset} />
+      <div id="categories" className="scroll-mt-20">
+        <CategoryExplorer dataset={activeDataset} />
+      </div>
 
       {/* Pick any two columns and any of the eight chart types */}
-      <div className="space-y-3 pt-2">
+      <div id="charts" className="scroll-mt-20 space-y-3 pt-2">
         <div className="px-1">
           <h2 className="text-lg font-semibold text-white tracking-tight">Build a chart</h2>
           <p className="text-xs text-on-surface-variant mt-0.5">
@@ -472,7 +523,7 @@ export default function DashboardPage() {
       <PinnedCharts dataset={activeDataset} />
 
       {/* Auto dashboard: every chart the dataset supports, generated automatically */}
-      <div className="space-y-3 pt-2">
+      <div id="auto-dashboard" className="scroll-mt-20 space-y-3 pt-2">
         <div className="flex items-end justify-between px-1">
           <div>
             <h2 className="text-lg font-semibold text-white tracking-tight">Auto dashboard</h2>

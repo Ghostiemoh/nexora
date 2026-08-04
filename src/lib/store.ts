@@ -30,6 +30,8 @@ interface NexoraState {
   workflows: WorkflowTemplate[];
   /** charts the user pinned to the dashboard, per dataset */
   pinnedCharts: Record<string, ChartConfig[]>;
+  /** the first-run checklist stays hidden once someone closes it */
+  onboardingDismissed: boolean;
 
   // Platform actions
   notify: (level: AppNotification["level"], title: string, message: string) => void;
@@ -66,6 +68,9 @@ interface NexoraState {
   // Chart Actions
   pinChart: (datasetId: string, chart: ChartConfig) => void;
   unpinChart: (datasetId: string, index: number) => void;
+
+  dismissOnboarding: () => void;
+  restoreOnboarding: () => void;
 
   // Workflow Actions
   /** capture the active dataset's applied fixes and pinned charts as a template */
@@ -206,6 +211,7 @@ export const useNexora = create<NexoraState>()(
       settings: { geminiApiKey: "" },
       workflows: [],
       pinnedCharts: {},
+      onboardingDismissed: false,
 
       notify: (level, title, message) => {
         const n: AppNotification = {
@@ -588,6 +594,9 @@ export const useNexora = create<NexoraState>()(
         }));
       },
 
+      dismissOnboarding: () => set({ onboardingDismissed: true }),
+      restoreOnboarding: () => set({ onboardingDismissed: false }),
+
       saveWorkflow: (name, description, datasetId) => {
         const dataset = get().datasets.find((d) => d.id === datasetId);
         const id = `wfl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -813,6 +822,7 @@ export const useNexora = create<NexoraState>()(
         settings: state.settings,
         workflows: state.workflows,
         pinnedCharts: state.pinnedCharts,
+        onboardingDismissed: state.onboardingDismissed,
       }),
     }
   )
