@@ -311,7 +311,7 @@ export default function OcrCenterPage() {
     if (!parsedData || parsedData.columns.length === 0) return;
     const cleanName = (imageFile?.name || "scanned_invoice").replace(/\.[^/.]+$/, "") + "_ocr.csv";
     addDataset(cleanName, parsedData.columns, parsedData.rows);
-    router.push("/dashboard");
+    router.push("/dataset-doctor");
   };
 
   const handleClear = () => {

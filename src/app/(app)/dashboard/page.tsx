@@ -1,542 +1,261 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import {
-  TrendingUp,
-  Sparkles,
-  CheckCircle2,
-  AlertCircle,
-  Database,
-  GitBranch,
-  Undo2,
-  FileJson,
-  FileUp,
+  AlertTriangle,
+  FilterX,
+  LayoutDashboard,
+  Lightbulb,
+  Stethoscope,
 } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
-import { UploadDropzone } from "@/components/upload-dropzone";
-import { JoinCreatorModal } from "@/components/layout/join-creator-modal";
+import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
+import { NextStep } from "@/components/layout/next-step";
 import { TruncationBanner } from "@/components/truncation-banner";
-import { AutoDashboard } from "@/components/auto-dashboard";
-import { ValueReview } from "@/components/value-review";
-import { TransformTools } from "@/components/transform-tools";
-import { IntelligencePanel } from "@/components/intelligence-panel";
-import { ReportModule } from "@/components/report-module";
-import { CategoryExplorer, hasCategoryColumns } from "@/components/category-explorer";
+import { KpiRow } from "@/components/dashboard/kpi-row";
+import { ChartPanel } from "@/components/dashboard/chart-panel";
+import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ChartStudio } from "@/components/chart-studio";
 import { PinnedCharts } from "@/components/pinned-charts";
-import { GettingStarted } from "@/components/getting-started";
-import { SectionNav, type SectionLink } from "@/components/section-nav";
-
-const SECTIONS: SectionLink[] = [
-  { id: "overview", label: "Overview" },
-  { id: "findings", label: "Findings" },
-  { id: "report", label: "Report" },
-  { id: "health", label: "Health & cleaning" },
-  { id: "categories", label: "Categories" },
-  { id: "charts", label: "Build a chart" },
-  { id: "auto-dashboard", label: "Auto dashboard" },
-];
-import { buildRecipe, serializeRecipe, parseRecipe, previewCleanOp, type OpPreview } from "@/lib/recipe";
-import type { CleanOp } from "@/lib/types";
-import { motion } from "framer-motion";
+import { CategoryExplorer } from "@/components/category-explorer";
+import { buildKpis } from "@/lib/kpi";
+import { buildDashboardLayout, applyFilters } from "@/lib/dashboard";
+import { buildDashboard } from "@/lib/auto-dashboard";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+
+interface CrossFilter {
+  column: string;
+  value: string;
+}
 
 export default function DashboardPage() {
   const mounted = useMounted();
   const datasets = useNexora((s) => s.datasets);
   const activeId = useNexora((s) => s.activeId);
-  const applyFix = useNexora((s) => s.applyFix);
-  const undoFix = useNexora((s) => s.undoFix);
-  const undoDepth = useNexora((s) => s.undoDepth);
-  const applyRecipe = useNexora((s) => s.applyRecipe);
-  const recordExport = useNexora((s) => s.recordExport);
-
   const activeDataset = datasets.find((d) => d.id === activeId) || null;
 
-  const [fixingId, setFixingId] = useState<string | null>(null);
-  const [isJoinOpen, setIsJoinOpen] = useState(false);
-  const [recipeError, setRecipeError] = useState<string | null>(null);
-  const recipeInputRef = useRef<HTMLInputElement>(null);
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
+  const [crossFilter, setCrossFilter] = useState<CrossFilter | null>(null);
 
-  // Only offer a jump chip for a section that this dataset actually renders.
-  const sections = useMemo(
-    () =>
-      SECTIONS.filter(
-        (s) => s.id !== "categories" || (activeDataset !== null && hasCategoryColumns(activeDataset))
-      ),
+  // The layout is chosen from the full dataset, so filtering changes what the
+  // panels show but never which panels exist.
+  const layout = useMemo(
+    () => (activeDataset ? buildDashboardLayout(activeDataset) : null),
     [activeDataset]
   );
 
-  // Dry-run every fixable diagnostic so each card shows its blast radius.
-  const previews = useMemo(() => {
-    const map = new Map<string, OpPreview>();
-    if (!activeDataset) return map;
-    for (const diag of activeDataset.diagnostics) {
-      if (diag.fix) map.set(diag.id, previewCleanOp(activeDataset.rows, diag.fix.op));
-    }
-    return map;
-  }, [activeDataset]);
+  const rows = useMemo(() => {
+    if (!activeDataset) return [];
+    const filtered = applyFilters(activeDataset.rows, selections);
+    if (!crossFilter) return filtered;
+    return filtered.filter(
+      (r) => String(r[crossFilter.column] ?? "").trim() === crossFilter.value
+    );
+  }, [activeDataset, selections, crossFilter]);
+
+  const kpiResult = useMemo(
+    () => (activeDataset ? buildKpis(activeDataset, rows) : null),
+    [activeDataset, rows]
+  );
+
+  const insights = useMemo(
+    () => (activeDataset ? buildDashboard(activeDataset, rows).insights : []),
+    [activeDataset, rows]
+  );
 
   if (!mounted) {
     return (
-      <div className="p-8 max-w-[1440px] mx-auto flex items-center justify-center min-h-[60vh]">
-        <div className="text-on-surface-variant font-mono text-xs">Initializing Nexora engine…</div>
+      <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-8">
+        <p className="font-mono text-xs text-on-surface-variant">Building the dashboard…</p>
       </div>
     );
   }
 
-  // ── Empty state ──
-  if (datasets.length === 0 || !activeDataset) {
+  if (!activeDataset || !layout || !kpiResult) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: EASE_OUT }}
-        className="p-8 max-w-[1440px] mx-auto min-h-[80vh] flex flex-col justify-center items-center"
-      >
-        <div className="max-w-xl w-full text-center space-y-6">
-          <div className="space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-              <Database className="w-6 h-6 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">Start with a dataset</h2>
-            <p className="text-sm text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              Drop a CSV, TSV, JSON, or Excel file. Never used Nexora before? Load the sample below
-              and follow the four steps it puts on your dashboard.
-            </p>
-          </div>
-
-          <div className="nexora-card">
-            <UploadDropzone />
-          </div>
-
-          {/* What happens after the upload, so the first click is not a leap of faith */}
-          <ol className="grid grid-cols-1 gap-2 text-left sm:grid-cols-3">
-            {[
-              ["Nexora reads it", "Types, ranges, and gaps profiled on load."],
-              ["It tells you what matters", "Trends, anomalies, risks, and what to do."],
-              ["You export the report", "PDF, Word, or Markdown, ready to send."],
-            ].map(([title, detail], i) => (
-              <li key={title} className="nexora-card p-3.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-[10px] font-semibold text-primary">
-                  {i + 1}
-                </span>
-                <p className="mt-2 text-[12.5px] font-medium text-white">{title}</p>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-on-surface-variant">{detail}</p>
-              </li>
-            ))}
-          </ol>
-
-          <p className="text-[11px] text-on-surface-variant/70">
-            Runs 100% locally. Nothing leaves your machine.
-          </p>
-        </div>
-      </motion.div>
+      <WorkspaceEmpty
+        icon={LayoutDashboard}
+        title="No dashboard yet"
+        body="Nexora reads your columns, works out which KPIs the data can actually support, and lays out the charts that fit. Choose a dataset and it builds itself."
+      />
     );
   }
 
-  // ── Handlers ──
-  const handleApplyFix = async (diagId: string, op: CleanOp) => {
-    setFixingId(diagId);
-    await new Promise((r) => setTimeout(r, 300));
-    applyFix(activeDataset.id, op);
-    setFixingId(null);
+  const openIssues = activeDataset.diagnostics.filter((d) => d.severity === "warning").length;
+  const filtered = rows.length !== activeDataset.rows.length;
+
+  const handleCrossFilter = (column: string, value: string) => {
+    setCrossFilter((prev) =>
+      prev && prev.column === column && prev.value === value ? null : { column, value }
+    );
   };
-
-  const handleAutoFixAll = async () => {
-    setFixingId("all");
-    for (const diag of [...activeDataset.diagnostics]) {
-      if (diag.fix?.op) {
-        applyFix(activeDataset.id, diag.fix.op);
-        await new Promise((r) => setTimeout(r, 150));
-      }
-    }
-    setFixingId(null);
-  };
-
-  const handleUndo = () => {
-    undoFix(activeDataset.id);
-  };
-
-  const handleExportRecipe = () => {
-    const recipe = buildRecipe(activeDataset.name, activeDataset.recipe ?? []);
-    const json = serializeRecipe(recipe);
-    const filename = `${activeDataset.name.replace(/\.[^/.]+$/, "")}_recipe.json`;
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    recordExport({ kind: "recipe", filename, datasetId: activeDataset.id, datasetName: activeDataset.name, content: json });
-  };
-
-  const handleApplyRecipeFile = async (file: File) => {
-    setRecipeError(null);
-    try {
-      const recipe = parseRecipe(await file.text());
-      applyRecipe(activeDataset.id, recipe.ops);
-    } catch (err) {
-      setRecipeError(err instanceof Error ? err.message : "Could not read recipe.");
-    }
-  };
-
-  // ── Gauge ──
-  const overallScore = activeDataset.health.overall;
-  const radius = 46;
-  const circumference = 2 * Math.PI * radius;
-  const dashoffset = circumference - (overallScore / 100) * circumference;
-
-  const METRICS = [
-    { title: "Completeness", score: activeDataset.health.completeness, color: "#34d399", desc: "Share of non-empty cells across the dataset." },
-    { title: "Accuracy", score: activeDataset.health.accuracy, color: "#c0c1ff", desc: "Numeric values within the expected 1.5×IQR range." },
-    { title: "Validity", score: activeDataset.health.validity, color: "#fbbf24", desc: "Cells that match their inferred column type." },
-    { title: "Consistency", score: activeDataset.health.consistency, color: "#38bdf8", desc: "Cleanliness of whitespace, formats, and dupes." },
-  ];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="p-4 sm:p-6 md:p-8 max-w-[1440px] mx-auto space-y-7 select-none"
+      className="mx-auto max-w-[1440px] space-y-6 p-4 sm:p-6 md:p-8"
     >
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-2xl md:text-[28px] font-semibold text-white tracking-tight mb-1.5">
+          <span className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-[11px] text-on-surface-variant">
+            <LayoutDashboard className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            Step 2 · Business intelligence
+          </span>
+          <h1 className="mb-1.5 text-2xl font-semibold tracking-tight text-white md:text-[28px]">
             Dashboard
           </h1>
-          <p className="text-sm text-on-surface-variant flex items-center gap-2 flex-wrap">
-            Health and cleaning controls for
-            <span className="font-mono text-primary text-xs bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+          <p className="flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
+            Built automatically from
+            <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
               {activeDataset.name}
             </span>
           </p>
         </div>
-        <div className="flex gap-2.5 flex-wrap">
-          {undoDepth(activeDataset.id) > 0 && (
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={fixingId !== null}
-              className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08] disabled:opacity-40"
-              title="Undo the last cleaning operation"
-            >
-              <Undo2 className="w-4 h-4 text-on-surface-variant" />
-              Undo
-            </button>
-          )}
-          {(activeDataset.recipe?.length ?? 0) > 0 && (
-            <button
-              type="button"
-              onClick={handleExportRecipe}
-              className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08]"
-              title="Save the applied fixes as a replayable recipe"
-            >
-              <FileJson className="w-4 h-4 text-on-surface-variant" />
-              Save recipe
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => recipeInputRef.current?.click()}
-            disabled={fixingId !== null}
-            className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08] disabled:opacity-40"
-            title="Replay a saved cleaning recipe on this dataset"
-          >
-            <FileUp className="w-4 h-4 text-on-surface-variant" />
-            Apply recipe
-          </button>
-          <input
-            ref={recipeInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleApplyRecipeFile(f);
-              e.target.value = "";
-            }}
-          />
-          {datasets.length > 1 && (
-            <button
-              type="button"
-              onClick={() => setIsJoinOpen(true)}
-              className="pill h-10 px-4 bg-white/5 border border-white/10 text-on-surface text-[13px] hover:bg-white/[0.08]"
-            >
-              <GitBranch className="w-4 h-4 text-on-surface-variant" />
-              Join
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleAutoFixAll}
-            disabled={activeDataset.diagnostics.length === 0 || fixingId !== null}
-            className="pill h-10 px-5 bg-primary text-on-primary text-[13px] disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <Sparkles className="w-4 h-4" />
-            {fixingId === "all" ? "Auto-fixing…" : "Auto-fix all"}
-          </button>
-        </div>
+        <p className="max-w-sm text-[12px] leading-relaxed text-on-surface-variant/80 md:text-right">
+          Every KPI and chart below was chosen from your column types and names. Change any chart
+          type, filter the whole page, or build your own at the bottom.
+        </p>
       </div>
 
-      {recipeError && (
-        <div className="nexora-card p-3.5 border-amber-400/30 text-amber-300 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          Recipe error: {recipeError}
-        </div>
+      {/* Quality is upstream of every number on this page */}
+      {openIssues > 0 && (
+        <Link
+          href="/dataset-doctor"
+          className="press flex items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-3.5 text-[12.5px] text-amber-200 transition-colors hover:bg-amber-400/[0.1]"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">
+            {openIssues} unresolved data quality issue{openIssues === 1 ? "" : "s"} in this dataset.
+            The numbers below inherit them.
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 font-medium">
+            <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
+            Fix in Dataset Doctor
+          </span>
+        </Link>
       )}
 
       {activeDataset.truncated && <TruncationBanner rows={activeDataset.rows.length} />}
 
-      {/* First-run path: load, clean, chart, export */}
-      <GettingStarted dataset={activeDataset} />
+      <FilterBar
+        filters={layout.filters}
+        selections={selections}
+        onChange={setSelections}
+        visible={rows.length}
+        total={activeDataset.rows.length}
+      />
 
-      <SectionNav sections={sections} />
+      {crossFilter && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 font-mono text-[12px] text-primary">
+            {crossFilter.column} = {crossFilter.value}
+            <button
+              type="button"
+              onClick={() => setCrossFilter(null)}
+              className="cursor-pointer transition-colors hover:text-white"
+              aria-label="Clear the chart filter"
+            >
+              <FilterX className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </span>
+          <span className="text-[11px] text-on-surface-variant">
+            Set by clicking a chart. Every panel and KPI on this page reflects it.
+          </span>
+        </div>
+      )}
 
-      {/* Overview */}
-      <h2 id="overview" className="scroll-mt-20 text-lg font-semibold text-white tracking-tight px-1 -mb-3">
-        Overview
-      </h2>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Health gauge */}
-        <div className="nexora-card lg:col-span-4 p-6 flex flex-col">
-          <h3 className="text-[13px] font-medium text-on-surface-variant mb-2">Health score</h3>
-          <div className="flex-1 flex flex-col items-center justify-center py-4">
-            <div className="relative w-36 h-36">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r={radius} fill="none" stroke="#1b2030" strokeWidth="8" />
-                <motion.circle
-                  cx="50"
-                  cy="50"
-                  r={radius}
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  initial={{ strokeDashoffset: circumference }}
-                  animate={{ strokeDashoffset: dashoffset }}
-                  transition={{ duration: 1.3, ease: EASE_OUT }}
+      {rows.length === 0 ? (
+        <div className="nexora-card p-12 text-center">
+          <p className="text-sm text-white">No rows match the current filters.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSelections({});
+              setCrossFilter(null);
+            }}
+            className="press mt-3 cursor-pointer rounded-lg border border-white/10 px-3.5 py-2 text-[12.5px] text-on-surface-variant hover:bg-white/[0.06] hover:text-on-surface"
+          >
+            Clear all filters
+          </button>
+        </div>
+      ) : (
+        <>
+          <KpiRow
+            kpis={kpiResult.kpis}
+            comparison={kpiResult.comparison}
+            currency={kpiResult.currency}
+          />
+
+          {insights.length > 0 && (
+            <section className="nexora-card p-5" aria-label="Automatic insights">
+              <div className="mb-3 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-amber-400" aria-hidden="true" />
+                <h2 className="text-[13px] font-semibold text-white">What stands out</h2>
+                {filtered && (
+                  <span className="font-mono text-[10px] text-on-surface-variant">
+                    (within the current filter)
+                  </span>
+                )}
+              </div>
+              <ul className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+                {insights.map((insight) => (
+                  <li key={insight} className="flex gap-2 text-xs leading-relaxed text-on-surface-variant">
+                    <span className="shrink-0 text-primary" aria-hidden="true">▸</span>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {layout.panels.length > 0 ? (
+            <section aria-label="Charts" className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              {layout.panels.map((panel, i) => (
+                <ChartPanel
+                  key={panel.id}
+                  dataset={activeDataset}
+                  panel={panel}
+                  rows={rows}
+                  index={i}
+                  onSelect={handleCrossFilter}
+                  selected={crossFilter}
                 />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-semibold text-[34px] text-white leading-none tabular-nums">
-                  {overallScore}
-                </span>
-                <span className="text-[10px] uppercase tracking-wider text-on-surface-variant mt-1">
-                  out of 100
-                </span>
-              </div>
+              ))}
+            </section>
+          ) : (
+            <div className="nexora-card p-10 text-center text-sm text-on-surface-variant">
+              This dataset has no numeric, date, or category column to chart. Add one, or use SQL Lab
+              to shape it first.
             </div>
-            <div className="mt-4 inline-flex items-center gap-1.5 text-primary text-[11px] bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-              <TrendingUp className="w-3.5 h-3.5" />
-              {overallScore >= 90 ? "Production ready" : overallScore >= 70 ? "Needs a few fixes" : "Needs attention"}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/[0.06] mt-auto">
-            <div>
-              <p className="text-[11px] text-on-surface-variant">Anomalies</p>
-              <p className="text-base font-semibold text-white tabular-nums">
-                {activeDataset.diagnostics.length}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] text-on-surface-variant">Consistency</p>
-              <p className="text-base font-semibold text-white tabular-nums">
-                {activeDataset.health.consistency}%
-              </p>
-            </div>
-          </div>
-        </div>
+          )}
+        </>
+      )}
 
-        {/* Metric breakdown */}
-        <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {METRICS.map((m) => (
-            <div key={m.title} className="nexora-card nexora-card-interactive p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-semibold text-white text-sm">{m.title}</h4>
-                  <span className="font-mono text-sm text-white tabular-nums">{m.score}%</span>
-                </div>
-                <p className="text-xs text-on-surface-variant leading-relaxed">{m.desc}</p>
-              </div>
-              <div className="w-full bg-black/30 h-1.5 rounded-full overflow-hidden mt-6">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ backgroundColor: m.color }}
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${m.score}%` }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1, ease: EASE_OUT }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Every categorical column, with the weight behind each value */}
+      <CategoryExplorer dataset={activeDataset} />
 
-      {/* What the data means, before what the data is */}
-      <div id="findings" className="scroll-mt-20">
-        <IntelligencePanel dataset={activeDataset} />
-      </div>
+      <PinnedCharts dataset={activeDataset} />
 
-      {/* The generated report, one click from the dashboard */}
-      <div id="report" className="scroll-mt-20">
-        <ReportModule dataset={activeDataset} />
-      </div>
-
-      {/* Diagnostics + schema */}
-      <h2 id="health" className="scroll-mt-20 text-lg font-semibold text-white tracking-tight px-1 -mb-3">
-        Health &amp; cleaning
-      </h2>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-6 space-y-3">
-          <h3 className="text-[13px] font-medium text-on-surface-variant px-1">Diagnostics</h3>
-          <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-            {activeDataset.diagnostics.length === 0 ? (
-              <div className="nexora-card p-10 flex flex-col items-center justify-center text-center">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-3" />
-                <span className="text-sm font-semibold text-white">All clear</span>
-                <span className="text-xs text-on-surface-variant mt-1.5 max-w-[30ch] leading-relaxed">
-                  No anomalies, duplicate rows, or format issues detected.
-                </span>
-              </div>
-            ) : (
-              activeDataset.diagnostics.map((diag) => (
-                <div
-                  key={diag.id}
-                  className="nexora-card p-4 flex justify-between items-start gap-4"
-                >
-                  <div className="flex gap-3 items-start">
-                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-semibold text-white text-sm">{diag.title}</h4>
-                      <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                        {diag.description}
-                      </p>
-                      {(() => {
-                        const p = previews.get(diag.id);
-                        if (!p || (p.changedCells === 0 && p.removedRows === 0)) return null;
-                        return (
-                          <p className="text-[11px] font-mono text-primary/80 mt-1.5">
-                            {p.removedRows > 0
-                              ? `will remove ${p.removedRows} row(s)`
-                              : `will change ${p.changedCells} cell(s)`}
-                          </p>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  {diag.fix && (
-                    <button
-                      type="button"
-                      onClick={() => handleApplyFix(diag.id, diag.fix!.op)}
-                      disabled={fixingId !== null}
-                      className="press shrink-0 px-3.5 py-2 rounded-lg bg-primary/12 border border-primary/20 text-primary hover:bg-primary/20 text-[12px] font-medium cursor-pointer transition-colors disabled:opacity-40"
-                    >
-                      {fixingId === diag.id ? "Fixing…" : diag.fix.label}
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Schema */}
-        <div className="lg:col-span-6 space-y-3">
-          <h3 className="text-[13px] font-medium text-on-surface-variant px-1">Schema</h3>
-          <div className="nexora-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-white/[0.06] text-on-surface-variant">
-                    <th className="p-3.5 font-medium text-[11px]">Field</th>
-                    <th className="p-3.5 font-medium text-[11px]">Type</th>
-                    <th className="p-3.5 font-medium text-[11px] text-center">Missing</th>
-                    <th className="p-3.5 font-medium text-[11px] text-center">Distinct</th>
-                    <th className="p-3.5 font-medium text-[11px] text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.05] font-mono text-[12px] text-on-surface-variant">
-                  {activeDataset.profiles?.map((col) => (
-                    <tr key={col.name} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-3.5 text-white font-medium">{col.name}</td>
-                      <td className="p-3.5 text-primary">{col.type}</td>
-                      <td className="p-3.5 text-center">
-                        {col.missingCount > 0 ? (
-                          <span className="text-amber-400">{col.missingCount}</span>
-                        ) : (
-                          "0"
-                        )}
-                      </td>
-                      <td className="p-3.5 text-center tabular-nums">{col.uniqueCount}</td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex justify-center">
-                          <span
-                            className={`inline-block w-1.5 h-1.5 rounded-full ${
-                              col.missingCount === 0 ? "bg-emerald-400" : "bg-amber-400"
-                            }`}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Excel tools: Find & Replace, Text to Columns */}
-      <TransformTools dataset={activeDataset} />
-
-      {/* Manual review of rare values the auto-fixer couldn't safely merge */}
-      <ValueReview dataset={activeDataset} />
-
-      {/* Every categorical column, with the count in each value */}
-      <div id="categories" className="scroll-mt-20">
-        <CategoryExplorer dataset={activeDataset} />
-      </div>
-
-      {/* Pick any two columns and any of the eight chart types */}
-      <div id="charts" className="scroll-mt-20 space-y-3 pt-2">
+      {/* Anything the generated layout did not think of */}
+      <section className="space-y-3 pt-2">
         <div className="px-1">
-          <h2 className="text-lg font-semibold text-white tracking-tight">Build a chart</h2>
-          <p className="text-xs text-on-surface-variant mt-0.5">
-            Nexora recommends the visualization that fits your column types, and you can switch to
-            any other that works.
+          <h2 className="text-lg font-semibold tracking-tight text-white">Build your own</h2>
+          <p className="mt-0.5 text-xs text-on-surface-variant">
+            Pick any two columns and any chart type. Nexora recommends the one that fits, and you can
+            pin whatever you build to this dashboard.
           </p>
         </div>
         <ChartStudio dataset={activeDataset} />
-      </div>
+      </section>
 
-      {/* Charts kept on this dashboard, including any a workflow restored */}
-      <PinnedCharts dataset={activeDataset} />
-
-      {/* Auto dashboard: every chart the dataset supports, generated automatically */}
-      <div id="auto-dashboard" className="scroll-mt-20 space-y-3 pt-2">
-        <div className="flex items-end justify-between px-1">
-          <div>
-            <h2 className="text-lg font-semibold text-white tracking-tight">Auto dashboard</h2>
-            <p className="text-xs text-on-surface-variant mt-0.5">
-              KPIs, splits, distributions, and trends, built automatically from{" "}
-              <span className="font-mono text-primary">{activeDataset.name}</span> without any setup.
-            </p>
-          </div>
-        </div>
-        <AutoDashboard dataset={activeDataset} />
-      </div>
-
-      {isJoinOpen && <JoinCreatorModal isOpen={isJoinOpen} onClose={() => setIsJoinOpen(false)} />}
+      <NextStep note="The picture is clear. Turn it into the written analysis you can send." />
     </motion.div>
   );
 }

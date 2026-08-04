@@ -16,7 +16,7 @@ import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { executeSql, type SqlResult } from "@/lib/sql-engine";
 import { generateSqlFromEnglish, optimizeOrFixQuery } from "@/lib/ai";
-import { UploadDropzone } from "@/components/upload-dropzone";
+import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
 import { motion } from "framer-motion";
 
 export default function SqlLabPage() {
@@ -65,28 +65,11 @@ export default function SqlLabPage() {
   // 1. EMPTY STATE
   if (datasets.length === 0 || !activeDataset) {
     return (
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 100, damping: 20 }}
-        className="p-6 max-w-[1440px] mx-auto min-h-[80vh] flex flex-col justify-center items-center"
-      >
-        <div className="max-w-xl w-full text-center space-y-6">
-          <div className="space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(192,193,255,0.15)] shadow-[inset_0_1px_rgba(255,255,255,0.05)]">
-              <Database className="w-6 h-6 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">SQL Lab</h2>
-            <p className="text-sm text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-              Load a dataset to write and run real SQL against it, right in your browser.
-            </p>
-          </div>
-
-          <div className="nexora-card p-6 border-dashed">
-            <UploadDropzone />
-          </div>
-        </div>
-      </motion.div>
+      <WorkspaceEmpty
+        icon={Database}
+        title="SQL Lab"
+        body="Write and run real SQL against your file, in this tab, with results in milliseconds. Choose a dataset to query."
+      />
     );
   }
 

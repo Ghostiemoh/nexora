@@ -5,11 +5,10 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Check,
-  Stethoscope,
-  Sparkles,
-  Database,
-  ScanLine,
   ChevronRight,
+  FileBarChart,
+  LayoutDashboard,
+  Stethoscope,
 } from "lucide-react";
 import {
   Reveal,
@@ -22,81 +21,88 @@ import {
 import { AppWindow } from "@/components/marketing/app-window";
 import { Aurora } from "@/components/marketing/aurora";
 import { Integrations } from "@/components/marketing/integrations";
-import { Testimonials } from "@/components/marketing/testimonials";
+import { Toolkit } from "@/components/marketing/toolkit";
 import { Faq } from "@/components/marketing/faq";
 
 /* ════════════════════════════════════════════════
    NEXORA — landing "sleek" · Apple / iOS grade
    Airy, frosted glass, soft depth, spring motion,
    one periwinkle accent. Calm over loud.
+
+   House rule for this page: every number and claim
+   below is checkable in the source. No usage stats
+   we cannot measure, no customers we do not have.
    ════════════════════════════════════════════════ */
 
-const STATS = [
-  { to: 84.6, decimals: 1, suffix: "M", label: "Rows profiled in-browser" },
-  { to: 47, suffix: "s", label: "To first insight" },
-  { to: 11, label: "Formats parsed" },
-  { to: 99.9, decimals: 1, suffix: "%", label: "Stays on your device" },
+/** Product limits and capabilities, all verifiable in the code:
+ *  ROW_CAP and MAX_FILE_BYTES in lib/csv.ts, CHART_TYPES in
+ *  lib/chart-recommend.ts, and the fact that there is no upload endpoint. */
+const FACTS = [
+  { to: 50_000, label: "Rows per file, parsed in the tab" },
+  { to: 25, suffix: " MB", label: "Maximum file size" },
+  { to: 8, label: "Chart types, switchable per chart" },
+  { to: 0, suffix: " bytes", label: "Sent to any server" },
 ];
 
-const FEATURES = [
+const WORKFLOW = [
   {
+    step: "01",
     icon: Stethoscope,
     title: "Dataset Doctor",
-    body: "Every upload is scored for completeness, validity, and uniqueness. Defects are named and located, each with a one-click fix you approve.",
+    body: "The file lands and is profiled on the spot: types, ranges, gaps, duplicates, outliers, encodings. Each defect comes with the fix that repairs it, and every fix is undoable.",
+    href: "/dataset-doctor",
   },
   {
-    icon: Sparkles,
-    title: "Axiom analyst",
-    body: "Ask in plain language. Axiom writes the SQL, runs it locally, and answers with the chart and how confident it is.",
+    step: "02",
+    icon: LayoutDashboard,
+    title: "Dashboard",
+    body: "Nexora reads what your columns mean, not just what type they are, and builds the KPIs the data supports. Revenue, margin, order value, growth. Nothing irrelevant, nothing invented.",
+    href: "/dashboard",
   },
   {
-    icon: Database,
-    title: "SQL Lab",
-    body: "A real in-memory engine. Joins, filters, and aggregates against your file, with results in milliseconds.",
-  },
-  {
-    icon: ScanLine,
-    title: "OCR ingestion",
-    body: "Drop a scanned invoice or table and pull it into a clean, editable spreadsheet, ready to profile.",
+    step: "03",
+    icon: FileBarChart,
+    title: "Reports",
+    body: "The findings become a written analysis with a summary, evidence, root causes, and recommendations. Edit any section, then export to PDF, Word, or Markdown.",
+    href: "/reports",
   },
 ];
 
 const FREE_FEATURES = [
   "Dataset Doctor with one-click fixes",
-  "Auto dashboard + insights",
-  "In-browser SQL sandbox",
+  "Auto-built dashboard with adaptive KPIs",
+  "In-browser SQL engine",
+  "Pivot tables with two-way totals",
   "Cleaning recipes, undo, audit log",
   "PostgreSQL + MySQL connections",
-  "AI chat & English→SQL (your own free Gemini key)",
-  "CSV, Excel, and PDF reports",
+  "AI chat & English→SQL (your own Gemini key)",
+  "PDF, Word, Markdown, CSV, Excel export",
   "Team workspace bundles",
   "OCR + PDF table extraction",
-  "Your data never leaves your device",
 ];
 
 export default function SleekLanding() {
   return (
     <div className="overflow-hidden">
       {/* ─── Hero ─── */}
-      <section className="relative px-6 pt-24 md:pt-32 pb-8 text-center">
-        {/* aurora + soft aura */}
+      <section className="relative px-6 pb-8 pt-24 text-center md:pt-32">
         <Aurora className="opacity-60 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent_75%)]" />
-        <div className="absolute left-1/2 top-10 -translate-x-1/2 w-[680px] h-[420px] aura" aria-hidden />
+        <div className="aura absolute left-1/2 top-10 h-[420px] w-[680px] -translate-x-1/2" aria-hidden />
 
         <motion.div
           variants={stagger}
           initial="hidden"
           animate="show"
-          className="relative max-w-3xl mx-auto"
+          className="relative mx-auto max-w-3xl"
         >
           <motion.div variants={staggerItem}>
             <Link
-              href="#features"
+              href="#toolkit"
               className="press inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[13px] text-zinc-300"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-              Client-side SQL engine, now live
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Eleven tools, no account, no server
+              <ChevronRight className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
             </Link>
           </motion.div>
 
@@ -113,7 +119,7 @@ export default function SleekLanding() {
 
           <motion.p
             variants={staggerItem}
-            className="mt-6 text-lg md:text-xl text-on-surface-variant max-w-xl mx-auto leading-relaxed"
+            className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-on-surface-variant md:text-xl"
           >
             Clean, analyze, query, and report from one calm workspace. An entire data team in your
             browser, and nothing ever leaves your machine.
@@ -121,22 +127,19 @@ export default function SleekLanding() {
 
           <motion.div
             variants={staggerItem}
-            className="mt-9 flex flex-col sm:flex-row gap-3 justify-center items-center"
+            className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
           >
             <Magnetic strength={0.25} className="inline-block">
               <Link
-                href="/dashboard"
-                className="pill bg-primary text-on-primary px-7 h-12 text-[15px] shadow-[0_8px_30px_-8px_var(--primary)]"
+                href="/launch"
+                className="pill h-12 bg-primary px-7 text-[15px] text-on-primary shadow-[0_8px_30px_-8px_var(--primary)]"
               >
                 Open the workspace
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </Magnetic>
-            <Link
-              href="/demo"
-              className="pill glass px-7 h-12 text-[15px] text-white"
-            >
-              Watch the demo
+            <Link href="#toolkit" className="pill h-12 glass px-7 text-[15px] text-white">
+              See every tool
             </Link>
           </motion.div>
 
@@ -145,104 +148,84 @@ export default function SleekLanding() {
           </motion.p>
         </motion.div>
 
-        {/* device */}
-        <HeroLift className="relative max-w-5xl mx-auto mt-16 md:mt-20">
+        <HeroLift className="relative mx-auto mt-16 max-w-5xl md:mt-20">
           <AppWindow />
         </HeroLift>
       </section>
 
-      {/* ─── Integrations ─── */}
+      {/* ─── Sources ─── */}
       <Integrations />
 
-      {/* ─── Stats ─── */}
+      {/* ─── Facts, not usage claims ─── */}
       <section className="px-6 py-20">
-        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-y-10">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} delay={i * 0.06} className="text-center px-4">
-              <div className="text-4xl md:text-5xl font-semibold text-white tracking-tight">
-                <Counter to={s.to} decimals={s.decimals} suffix={s.suffix} />
+        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-y-10 md:grid-cols-4">
+          {FACTS.map((f, i) => (
+            <Reveal key={f.label} delay={i * 0.06} className="px-4 text-center">
+              <div className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+                <Counter to={f.to} suffix={f.suffix} />
               </div>
-              <p className="mt-2 text-[13px] text-on-surface-variant">{s.label}</p>
+              <p className="mt-2 text-[13px] text-on-surface-variant">{f.label}</p>
             </Reveal>
           ))}
         </div>
+        <Reveal className="mx-auto mt-10 max-w-lg text-center">
+          <p className="text-[12.5px] leading-relaxed text-zinc-600">
+            These are product limits and capabilities, not usage statistics. Nexora has no analytics
+            and no server, so there is nothing here we could measure about you.
+          </p>
+        </Reveal>
       </section>
 
-      {/* ─── Features ─── */}
-      <section id="features" className="px-6 py-20">
-        <Reveal className="max-w-2xl mx-auto text-center mb-14">
-          <h2 className="text-3xl md:text-5xl font-semibold tracking-[-0.02em] text-white">
-            Everything the data needs.
+      {/* ─── The workflow ─── */}
+      <section id="workflow" className="px-6 py-20">
+        <Reveal className="mx-auto mb-14 max-w-2xl text-center">
+          <h2 className="text-3xl font-semibold tracking-[-0.02em] text-white md:text-5xl">
+            Three steps, in the order
             <br />
-            <span className="text-on-surface-variant">Nothing it doesn&apos;t.</span>
+            <span className="text-on-surface-variant">analysis actually happens.</span>
           </h2>
         </Reveal>
 
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-          {FEATURES.map((f, i) => {
-            const Icon = f.icon;
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-3">
+          {WORKFLOW.map((stage, i) => {
+            const Icon = stage.icon;
             return (
-              <Reveal key={f.title} delay={i * 0.07}>
-                <div className="glass sheen sweep-on-hover rounded-3xl p-7 h-full">
-                  <div className="w-11 h-11 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center mb-5">
-                    <Icon className="w-5 h-5 text-primary" strokeWidth={1.75} />
+              <Reveal key={stage.title} delay={i * 0.08}>
+                <Link
+                  href={stage.href}
+                  className="group glass sheen sweep-on-hover flex h-full flex-col rounded-3xl p-7 transition-colors hover:border-primary/25"
+                >
+                  <div className="mb-5 flex items-center justify-between">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/12">
+                      <Icon className="h-5 w-5 text-primary" strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                    <span className="font-mono text-[11px] tracking-widest text-zinc-600">
+                      {stage.step}
+                    </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-                  <p className="text-[14px] text-on-surface-variant leading-relaxed">{f.body}</p>
-                </div>
+                  <h3 className="mb-2 text-lg font-semibold text-white">{stage.title}</h3>
+                  <p className="text-[14px] leading-relaxed text-on-surface-variant">{stage.body}</p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-white">
+                    Open
+                    <ArrowRight
+                      className="h-3.5 w-3.5 text-primary transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </Link>
               </Reveal>
             );
           })}
         </div>
       </section>
 
-      {/* ─── Showcase row — Axiom conversation ─── */}
-      <section className="px-6 py-20">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <Reveal>
-            <span className="text-[13px] font-medium text-primary">Axiom</span>
-            <h2 className="mt-3 text-3xl md:text-4xl font-semibold tracking-[-0.02em] text-white">
-              Ask the question you actually have.
-            </h2>
-            <p className="mt-4 text-[15px] text-on-surface-variant leading-relaxed max-w-md">
-              No query language to learn. Axiom translates plain English into SQL, runs it against
-              your data, and shows you the query behind every answer.
-            </p>
-            <Link
-              href="/workspace"
-              className="press mt-6 inline-flex items-center gap-2 text-[15px] font-medium text-white"
-            >
-              See Axiom work
-              <ArrowRight className="w-4 h-4 text-primary" />
-            </Link>
-          </Reveal>
-
-          <Reveal delay={0.1}>
-            <div className="glass sheen rounded-3xl p-5 space-y-3">
-              <div className="ml-auto max-w-[82%] bg-black/30 border border-white/[0.05] rounded-2xl rounded-tr-md px-4 py-2.5 text-[13.5px] text-zinc-200">
-                Which accounts dropped API usage by more than 40% this month?
-              </div>
-              <div className="max-w-[88%] bg-primary/[0.07] border border-primary/20 rounded-2xl rounded-tl-md px-4 py-3">
-                <p className="text-[13.5px] text-zinc-200 mb-2">
-                  423 Enterprise accounts match. That cluster correlates with churn at 0.81, table
-                  and chart are on your canvas.
-                </p>
-                <p className="font-mono text-[11px] text-primary/90">
-                  SELECT account_id, delta_14d FROM usage_rollup WHERE …
-                </p>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ─── Testimonials ─── */}
-      <Testimonials />
+      {/* ─── The full toolkit ─── */}
+      <Toolkit />
 
       {/* ─── Free ─── */}
       <section id="pricing" className="px-6 py-20">
-        <Reveal className="max-w-2xl mx-auto text-center mb-10">
-          <h2 className="text-3xl md:text-5xl font-semibold tracking-[-0.02em] text-white">
+        <Reveal className="mx-auto mb-10 max-w-2xl text-center">
+          <h2 className="text-3xl font-semibold tracking-[-0.02em] text-white md:text-5xl">
             Everything is free
           </h2>
           <p className="mt-4 text-on-surface-variant">
@@ -252,26 +235,26 @@ export default function SleekLanding() {
           </p>
         </Reveal>
 
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl">
           <Reveal className="h-full">
-            <div className="relative glass sheen ring-1 ring-primary/40 rounded-3xl p-8 shadow-[0_30px_60px_-30px_var(--primary)]">
-              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-on-primary text-[10px] font-semibold uppercase tracking-wide">
+            <div className="relative glass sheen rounded-3xl p-8 shadow-[0_30px_60px_-30px_var(--primary)] ring-1 ring-primary/40">
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-primary">
                 Free forever
               </span>
-              <div className="flex items-baseline gap-1 mb-7 justify-center">
-                <span className="text-5xl font-semibold text-white tabular-nums">$0</span>
+              <div className="mb-7 flex items-baseline justify-center gap-1">
+                <span className="text-5xl font-semibold tabular-nums text-white">$0</span>
                 <span className="text-[13px] text-zinc-500">forever</span>
               </div>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-[13.5px] text-zinc-300 mb-8">
+              <ul className="mb-8 grid grid-cols-1 gap-x-8 gap-y-3 text-[13.5px] text-zinc-300 sm:grid-cols-2">
                 {FREE_FEATURES.map((f) => (
                   <li key={f} className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                     {f}
                   </li>
                 ))}
               </ul>
               <div className="flex justify-center">
-                <Link href="/dashboard" className="pill h-11 px-8 text-[14px] bg-primary text-on-primary">
+                <Link href="/launch" className="pill h-11 bg-primary px-8 text-[14px] text-on-primary">
                   Start now for free
                 </Link>
               </div>
@@ -285,23 +268,23 @@ export default function SleekLanding() {
 
       {/* ─── Final CTA ─── */}
       <section className="px-6 py-24">
-        <Reveal className="relative max-w-3xl mx-auto text-center glass sheen rounded-[32px] px-6 py-20 overflow-hidden">
+        <Reveal className="relative mx-auto max-w-3xl overflow-hidden rounded-[32px] glass sheen px-6 py-20 text-center">
           <Aurora className="opacity-50" />
-          <div className="absolute left-1/2 -top-20 -translate-x-1/2 w-[460px] h-[260px] aura" aria-hidden />
-          <h2 className="relative text-3xl md:text-5xl font-semibold tracking-[-0.02em] text-white">
-            Your first dataset takes 47 seconds.
+          <div className="aura absolute -top-20 left-1/2 h-[260px] w-[460px] -translate-x-1/2" aria-hidden />
+          <h2 className="relative text-3xl font-semibold tracking-[-0.02em] text-white md:text-5xl">
+            Drop a file and watch it profile.
           </h2>
-          <p className="relative mt-4 text-on-surface-variant max-w-md mx-auto">
-            No account, no upload to a server. Drop a file and watch it profile right here.
+          <p className="relative mx-auto mt-4 max-w-md text-on-surface-variant">
+            No account, no upload to a server. The parsing happens in this tab, on your machine.
           </p>
           <div className="relative mt-9 flex justify-center">
             <Magnetic strength={0.3} className="inline-block">
               <Link
-                href="/dashboard"
-                className="pill bg-primary text-on-primary px-8 h-12 text-[15px] shadow-[0_10px_40px_-10px_var(--primary)]"
+                href="/launch"
+                className="pill h-12 bg-primary px-8 text-[15px] text-on-primary shadow-[0_10px_40px_-10px_var(--primary)]"
               >
                 Open the workspace
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </Magnetic>
           </div>

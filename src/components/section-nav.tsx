@@ -37,7 +37,9 @@ export function SectionNav({ sections }: { sections: SectionLink[] }) {
   return (
     <nav
       aria-label="Sections on this page"
-      className="no-print sticky top-2 z-30 -mx-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-surface-container-low/85 px-1.5 py-1.5 backdrop-blur-md"
+      /* Opaque, not translucent: a sticky bar that content can be read through
+         looks like the section beneath it is overlapping. */
+      className="no-print sticky top-2 z-30 -mx-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-surface-container px-1.5 py-1.5 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.9)]"
     >
       <ul className="flex w-max items-center gap-1">
         {sections.map((section) => {

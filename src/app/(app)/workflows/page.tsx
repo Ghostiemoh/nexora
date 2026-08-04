@@ -16,11 +16,12 @@ import {
   AlertCircle,
   ArrowUp,
   ArrowDown,
+  FolderOpen,
 } from "lucide-react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
-import { UploadDropzone } from "@/components/upload-dropzone";
 import {
   summarizeWorkflow,
   serializeWorkflow,
@@ -200,9 +201,13 @@ export default function WorkflowsPage() {
               A workflow is a recording of what you did to a dataset. Load one first, clean it, then
               come back and save those steps as a template.
             </p>
-            <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/15">
-              <UploadDropzone />
-            </div>
+            <Link
+              href="/launch"
+              className="pill mt-4 h-10 w-fit bg-primary px-4 text-[13px] text-on-primary"
+            >
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              Choose a dataset
+            </Link>
           </>
         )}
       </section>

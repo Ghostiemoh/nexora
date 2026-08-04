@@ -99,7 +99,7 @@ export default function ConnectionsPage() {
 
       addDataset(`${conn.name} · ${label}`, data.columns, data.rows, data.truncated ?? false);
       logAudit("import", `Imported ${data.rows.length} rows from '${conn.name}' (${label}).`);
-      router.push("/dashboard");
+      router.push("/dataset-doctor");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Import failed";
       notify("error", "Import failed", `'${conn.name}': ${msg}`);

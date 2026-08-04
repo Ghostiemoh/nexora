@@ -8,6 +8,20 @@ Real exports arrive broken in predictable ways. An unnamed index column. Dates s
 
 Fixing that by hand takes about forty minutes, and next month the same export shows up and you do it again. Nexora fixes it in a click and saves the steps to a file you can replay.
 
+## How it is organised
+
+The workspace follows the order real analysis happens in, and each step is its own page.
+
+**Datasets** (`/launch`) is the front door. It lists everything loaded on this device with its type, when it arrived, when it last changed, and a preview of the first rows. Opening Nexora never reopens the last file on your behalf; you choose.
+
+**Step 1 — Dataset Doctor** (`/dataset-doctor`) is quality only: health score, missing values, duplicates, outliers, type validation, and a fix for each.
+
+**Step 2 — Dashboard** (`/dashboard`) is business intelligence only: KPIs derived from what your columns mean, charts chosen for their types, filters, and cross-filtering.
+
+**Step 3 — Reports** (`/reports`) is the written analysis, editable and exportable.
+
+Everything else — AI Analyst, SQL Lab, Pivot Table, OCR Center, Data Sources, Workflows, History — is a tool you reach for along the way.
+
 ## What it does
 
 ### Dataset Doctor
@@ -20,11 +34,17 @@ The one-click fixes cover duplicate and blank rows, stray whitespace, broken enc
 
 Every fix you apply gets recorded. Export the sequence as a recipe file and you can replay the entire cleanup on next month's copy of the same messy export in one click. Undo works on any step.
 
-### Auto dashboard
+### Dashboard
 
-The dashboard builds itself out of whatever the data supports: KPI cards, donut charts for categories, histograms for numbers, pivot bars, and a time series when there is a usable date column. Click any slice or bar and every other card refilters around it.
+The dashboard reads what your columns *mean*, not just what type they hold, and builds the KPIs the data can actually support: total revenue, gross profit, profit margin, average order value, distinct customers, units, conversion rate, inventory value. A KPI the data cannot support is left out rather than shown as a zero, and row and column counts never appear as headline numbers because they are metadata, not business insight. Where there is a date column, every KPI is compared against the preceding window of equal length, so a half-finished month cannot read as a collapse.
+
+Chart selection follows the same logic: a trend first, then what drives it, then how it splits, then how it is distributed. Every panel carries its own chart-type switcher — bar, line, pie, area, scatter, histogram, doughnut, heatmap — with the unsuitable ones disabled and the reason on the button. Filter the whole page from the filter bar, or click any bar or slice to cross-filter every other panel and KPI.
 
 Next to the charts, Nexora writes out what it noticed in ordinary sentences. Which category carries most of the revenue. Whether a column is skewed badly enough that you should quote the median instead of the mean. How the most recent period compares with the one before it.
+
+### Pivot Table
+
+Two fields crossed, one measure aggregated by sum, average, min, max, or count, with totals both ways. Every total is recomputed from the source rows rather than from the cells above it, so an average of averages can never appear. Exports to CSV.
 
 ### SQL Lab
 
@@ -70,7 +90,9 @@ Next.js (App Router), React, TypeScript, Tailwind, Zustand, Recharts, PapaParse,
 
 ## How the code is arranged
 
-`src/lib/` holds the logic and imports no React: profiling, cleaning, the SQL engine, dashboard generation, recipes, and the read-only SQL guard. The unit suite covers all of it, so the statistics can be checked instead of taken on faith.
+`src/lib/` holds the logic and imports no React: profiling, cleaning, the SQL engine, column semantics, KPI derivation, dashboard composition, pivots, chart recommendation, recipes, and the read-only SQL guard. The unit suite covers all of it, so the statistics can be checked instead of taken on faith.
+
+The interesting pair is `semantics.ts` and `kpi.ts`. The first works out what a column means from its name and its distribution; the second turns that reading into KPI tiles, and refuses to emit one the data cannot support. `dashboard.ts` then composes panels as `ChartConfig` objects, which is the same shape the chart studio and the renderer already speak — that is what lets every panel on the dashboard be re-typed by the reader with no separate code path.
 
 The store re-profiles a dataset after every cleaning operation, which is what lets fixes cascade. Merging a typo can turn two near-identical rows into exact duplicates, and then the duplicate check catches them on the following pass.
 

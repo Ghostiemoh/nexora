@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Check, X, Compass, ArrowRight } from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { useNexora } from "@/lib/store";
@@ -13,9 +14,9 @@ interface Step {
   action: { label: string; href: string };
 }
 
-/** The first thing a new user sees once data is loaded: four steps from raw
- *  file to finished report. Every step is checked off from real state, never
- *  from "you clicked the button", so the list cannot lie about progress. */
+/** The workflow tracker: dataset in, quality fixed, dashboard read, report out.
+ *  Every step is checked off from real state, never from "you clicked the
+ *  button", so the list cannot lie about progress. */
 export function GettingStarted({ dataset }: { dataset: Dataset }) {
   const pinned = useNexora((s) => s.pinnedCharts[dataset.id]) ?? [];
   const exportHistory = useNexora((s) => s.exportHistory);
@@ -31,29 +32,29 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
     {
       id: "load",
       title: "Load a dataset",
-      detail: `${dataset.name} is loaded with ${dataset.rows.length.toLocaleString()} rows.`,
+      detail: `${dataset.name} is loaded with ${dataset.rows.length.toLocaleString("en-US")} rows.`,
       done: true,
-      action: { label: "Loaded", href: "#health" },
+      action: { label: "Loaded", href: "/launch" },
     },
     {
       id: "clean",
       title: "Fix the data problems",
       detail:
         openIssues === 0
-          ? "No open issues. The numbers below can be trusted."
+          ? "No open issues. The numbers downstream can be trusted."
           : `${openIssues} issue${openIssues === 1 ? "" : "s"} found. Auto-fix all clears most of them in one click.`,
       done: openIssues === 0,
-      action: { label: openIssues === 0 ? "Review" : "Fix them", href: "#health" },
+      action: { label: openIssues === 0 ? "Review quality" : "Fix them", href: "/dataset-doctor" },
     },
     {
       id: "chart",
-      title: "Pin a chart you care about",
+      title: "Read the dashboard",
       detail:
         pinned.length > 0
-          ? `${pinned.length} chart${pinned.length === 1 ? "" : "s"} pinned to this dashboard.`
-          : "Chart Studio already picked the right chart type. Change it, then pin it.",
+          ? `${pinned.length} chart${pinned.length === 1 ? "" : "s"} pinned alongside the generated ones.`
+          : "KPIs and charts are already chosen for this data. Change any of them.",
       done: pinned.length > 0,
-      action: { label: pinned.length > 0 ? "Add another" : "Build one", href: "#charts" },
+      action: { label: pinned.length > 0 ? "Open dashboard" : "See the KPIs", href: "/dashboard" },
     },
     {
       id: "report",
@@ -62,7 +63,7 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
         ? "Report exported. It is listed in History & Audit."
         : "The full report is already written. Download it as PDF, Word, or Markdown.",
       done: exported,
-      action: { label: exported ? "Export again" : "Get the report", href: "#report" },
+      action: { label: exported ? "Export again" : "Get the report", href: "/reports" },
     },
   ];
 
@@ -80,7 +81,7 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
           <p className="mt-0.5 text-[12px] text-on-surface-variant">
             {complete
               ? "Load the next file and repeat, or save this run as a workflow so it replays in one click."
-              : "Each step jumps you to the right place on this page."}
+              : "Each step opens the page that handles it."}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -129,13 +130,13 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
             </p>
 
             {step.id !== "load" && (
-              <a
+              <Link
                 href={step.action.href}
                 className="press mt-2.5 inline-flex w-fit cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[11.5px] font-medium text-on-surface transition-colors hover:bg-white/[0.09]"
               >
                 {step.action.label}
                 <ArrowRight className="h-3 w-3" aria-hidden="true" />
-              </a>
+              </Link>
             )}
           </li>
         ))}

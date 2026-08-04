@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   NAV_ITEMS,
-  PRIMARY_NAV,
+  NAV_SECTIONS,
+  WORKFLOW_NAV,
   HOME_HREF,
   findNavItem,
   isNavActive,
+  nextStep,
   buildBreadcrumbs,
 } from "./nav";
 
@@ -14,13 +16,26 @@ describe("nav map", () => {
     expect(new Set(NAV_ITEMS.map((i) => i.label)).size).toBe(NAV_ITEMS.length);
   });
 
-  it("puts Reports in the primary group so it sits with the main modules", () => {
-    expect(PRIMARY_NAV.map((i) => i.href)).toContain("/reports");
+  it("orders the workflow as Dataset Doctor, Dashboard, Reports", () => {
+    expect(WORKFLOW_NAV.map((i) => i.label)).toEqual(["Dataset Doctor", "Dashboard", "Reports"]);
+    expect(WORKFLOW_NAV.map((i) => i.step)).toEqual([1, 2, 3]);
   });
 
-  it("routes home to the dashboard", () => {
-    expect(HOME_HREF).toBe("/dashboard");
-    expect(findNavItem(HOME_HREF)?.label).toBe("Dashboard");
+  it("routes home to the dataset picker, not to a dataset", () => {
+    expect(HOME_HREF).toBe("/launch");
+    expect(findNavItem(HOME_HREF)?.label).toBe("Datasets");
+  });
+
+  it("never labels the quality page as the dashboard", () => {
+    expect(findNavItem("/dataset-doctor")?.label).toBe("Dataset Doctor");
+    expect(findNavItem("/dashboard")?.label).toBe("Dashboard");
+  });
+
+  it("puts every item in exactly one rendered section, plus Settings", () => {
+    const rendered = NAV_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+    expect(new Set(rendered).size).toBe(rendered.length);
+    const missing = NAV_ITEMS.filter((i) => !rendered.includes(i.href)).map((i) => i.href);
+    expect(missing).toEqual(["/settings"]);
   });
 });
 
@@ -47,15 +62,30 @@ describe("isNavActive", () => {
   });
 });
 
+describe("nextStep", () => {
+  it("walks the workflow forward one page at a time", () => {
+    expect(nextStep("/dataset-doctor")?.href).toBe("/dashboard");
+    expect(nextStep("/dashboard")?.href).toBe("/reports");
+  });
+
+  it("stops at the end of the workflow", () => {
+    expect(nextStep("/reports")).toBeNull();
+  });
+
+  it("has no next step for pages outside the workflow", () => {
+    expect(nextStep("/sql-lab")).toBeNull();
+    expect(nextStep("/launch")).toBeNull();
+  });
+});
+
 describe("buildBreadcrumbs", () => {
   it("gives home no link when you are already home", () => {
-    const crumbs = buildBreadcrumbs("/dashboard");
-    expect(crumbs).toEqual([{ label: "Home", href: undefined }]);
+    expect(buildBreadcrumbs("/launch")).toEqual([{ label: "Home", href: undefined }]);
   });
 
   it("links home and names the current section", () => {
     expect(buildBreadcrumbs("/workflows")).toEqual([
-      { label: "Home", href: "/dashboard" },
+      { label: "Home", href: "/launch" },
       { label: "Workflows" },
     ]);
   });
@@ -67,7 +97,7 @@ describe("buildBreadcrumbs", () => {
   });
 
   it("still shows the dataset on the home route", () => {
-    expect(buildBreadcrumbs("/dashboard", "sales.csv").map((c) => c.label)).toEqual([
+    expect(buildBreadcrumbs("/launch", "sales.csv").map((c) => c.label)).toEqual([
       "Home",
       "sales.csv",
     ]);

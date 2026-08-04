@@ -7,7 +7,6 @@ import {
   Send,
   Trash2,
   Database,
-  Grid,
   Sparkles,
   FileSpreadsheet,
   Search,
@@ -18,7 +17,7 @@ import {
 } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
-import { UploadDropzone } from "@/components/upload-dropzone";
+import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
 import { TruncationBanner } from "@/components/truncation-banner";
 import { parseNumeric } from "@/lib/number";
 import { chatWithData } from "@/lib/ai";
@@ -98,25 +97,11 @@ export default function WorkspacePage() {
   // 1. EMPTY STATE
   if (datasets.length === 0 || !activeDataset) {
     return (
-      <div className="p-6 max-w-[1440px] mx-auto min-h-[80vh] flex flex-col justify-center items-center">
-        <div className="max-w-xl w-full text-center space-y-6">
-          <div className="space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-              <Grid className="w-6 h-6 text-primary animate-spin-slow" />
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight text-white font-headline-md">
-              Data Explorer Workspace
-            </h2>
-            <p className="text-sm text-on-surface-variant max-w-sm mx-auto">
-              Ingest a data source to enable grid filtering, categorical plotting, and conversational database queries.
-            </p>
-          </div>
-
-          <div className="nexora-card p-6 border-dashed border-outline-variant/60 bg-surface-container-low/30">
-            <UploadDropzone />
-          </div>
-        </div>
-      </div>
+      <WorkspaceEmpty
+        icon={Sparkles}
+        title="AI Analyst"
+        body="Browse the rows, filter the grid, and ask questions about the data in plain language. Choose a dataset to explore."
+      />
     );
   }
 

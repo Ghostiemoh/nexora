@@ -8,7 +8,13 @@ import { parseJsonContent, parseExcelWorkbook, parseExcelSheet } from "../lib/un
 import { SheetSelectorModal } from "./layout/sheet-selector-modal";
 import * as XLSX from "xlsx";
 
-export function UploadDropzone() {
+export function UploadDropzone({
+  /** fired with the new dataset's id once it is profiled and in the store, so a
+   *  caller can move the user straight on to the next step */
+  onLoaded,
+}: {
+  onLoaded?: (datasetId: string) => void;
+} = {}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addDataset = useNexora((s) => s.addDataset);
   const loadSample = useNexora((s) => s.loadSample);
@@ -32,11 +38,11 @@ export function UploadDropzone() {
       
       if (ext === "csv" || ext === "tsv" || ext === "txt") {
         const result = await parseCsvFile(file);
-        addDataset(name, result.columns, result.rows, result.truncated);
+        onLoaded?.(addDataset(name, result.columns, result.rows, result.truncated));
       } else if (ext === "json") {
         const text = await file.text();
         const result = parseJsonContent(text);
-        addDataset(name, result.columns, result.rows, result.truncated);
+        onLoaded?.(addDataset(name, result.columns, result.rows, result.truncated));
       } else if (ext === "xlsx") {
         const buffer = await file.arrayBuffer();
         const { sheets, workbook } = parseExcelWorkbook(buffer);
@@ -88,7 +94,7 @@ export function UploadDropzone() {
     try {
       setBusy(true);
       const result = parseExcelSheet(excelWorkbook, sheetName);
-      addDataset(`${excelFilename} (${sheetName})`, result.columns, result.rows);
+      onLoaded?.(addDataset(`${excelFilename} (${sheetName})`, result.columns, result.rows));
       // Reset sheet selector state
       setExcelWorkbook(null);
       setExcelSheets([]);
@@ -165,7 +171,7 @@ export function UploadDropzone() {
           type="button"
           onClick={() => {
             setError(null);
-            loadSample();
+            onLoaded?.(loadSample());
           }}
           className="px-4 py-2 border border-primary/30 rounded-lg text-primary text-body-md font-semibold hover:bg-primary/10 hover:border-primary transition-[color,background-color,border-color,box-shadow,transform,opacity] active:scale-95 cursor-pointer flex items-center gap-2"
         >

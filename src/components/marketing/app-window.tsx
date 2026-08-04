@@ -7,8 +7,9 @@ const BARS = [38, 60, 48, 72, 64, 88, 81];
 const R = 52;
 const CIRC = 2 * Math.PI * R;
 
-/* A calm, glassy app window. The kind of mockup Apple floats under a headline.
-   Health ring draws in, bars grow, Axiom answers. Restrained, one accent. */
+/* A calm, glassy app window: an illustration of the real interface, drawn with
+   the sample dataset that ships with Nexora. It is captioned as a preview so
+   nobody reads these figures as somebody's actual results. */
 export function AppWindow() {
   const reduced = useReducedMotion();
 
@@ -23,7 +24,7 @@ export function AppWindow() {
         </div>
         <div className="flex-1 flex items-center gap-2 h-7 px-3 rounded-lg bg-black/30 border border-white/[0.05] text-zinc-500 max-w-xs">
           <Search className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-mono">q3_revenue.csv</span>
+          <span className="text-[11px] font-mono">customer_churn_sample.csv</span>
         </div>
         <span className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -34,7 +35,7 @@ export function AppWindow() {
       <div className="grid grid-cols-1 md:grid-cols-12">
         {/* sidebar */}
         <div className="hidden md:flex md:col-span-3 flex-col gap-1 p-3 border-r border-white/[0.06]">
-          {["Overview", "Doctor", "Axiom", "SQL Lab", "Reports"].map((item, i) => (
+          {["Datasets", "Dataset Doctor", "Dashboard", "Reports", "SQL Lab"].map((item, i) => (
             <div
               key={item}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] ${
@@ -77,10 +78,10 @@ export function AppWindow() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-emerald-400 text-xs">
-                  <ShieldCheck className="w-3.5 h-3.5" /> 0 leaks
+                  <ShieldCheck className="w-3.5 h-3.5" /> nothing uploaded
                 </div>
                 <p className="text-[11px] text-zinc-500 leading-relaxed">
-                  3 fixes applied. Schema typed, deduped, validated.
+                  Completeness, accuracy, validity, and consistency, scored on load.
                 </p>
               </div>
             </div>
@@ -88,9 +89,9 @@ export function AppWindow() {
             {/* revenue bars */}
             <div className="col-span-12 sm:col-span-7 rounded-2xl border border-white/[0.06] bg-black/20 p-5">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-medium text-white">Monthly revenue</span>
-                <span className="flex items-center gap-1 text-[11px] text-emerald-400">
-                  <TrendingUp className="w-3.5 h-3.5" /> +24.8%
+                <span className="text-xs font-medium text-white">Revenue over time</span>
+                <span className="flex items-center gap-1 text-[11px] text-zinc-500">
+                  <TrendingUp className="w-3.5 h-3.5" /> vs previous period
                 </span>
               </div>
               <div className="flex items-end gap-2 h-[88px]">
@@ -123,13 +124,19 @@ export function AppWindow() {
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-primary">Axiom</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-primary">
+                What stands out
+              </span>
               <p className="text-[13px] text-zinc-300 leading-relaxed">
-                423 Enterprise accounts cut API usage over 40% this month. Accounts that fall this
-                fast tend to churn within 30 days.
+                Insights are written from your own data: which value drives the total, where the
+                Pareto break falls, which column is least complete, what moved last period.
               </p>
             </div>
           </motion.div>
+
+          <p className="text-center font-mono text-[10px] text-zinc-600">
+            Interface preview · drawn with the built-in sample dataset
+          </p>
         </div>
       </div>
     </div>

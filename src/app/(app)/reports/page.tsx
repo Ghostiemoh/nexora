@@ -17,7 +17,8 @@ import {
 import { motion } from "framer-motion";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
-import { UploadDropzone } from "@/components/upload-dropzone";
+import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
+import { IntelligencePanel } from "@/components/intelligence-panel";
 import { AutoDashboard } from "@/components/auto-dashboard";
 import { buildDashboard } from "@/lib/auto-dashboard";
 import { analyzeCached } from "@/lib/insights";
@@ -79,28 +80,11 @@ export default function ReportsPage() {
 
   if (datasets.length === 0 || !activeDataset || !report) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 100, damping: 20 }}
-        className="mx-auto flex min-h-[80vh] max-w-[1440px] flex-col items-center justify-center p-6"
-      >
-        <div className="w-full max-w-xl space-y-6 text-center">
-          <div className="space-y-2">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
-              <BookOpen className="h-6 w-6 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">Analyst report</h2>
-            <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant">
-              Load a dataset and Nexora writes the whole report: summary, quality, KPIs, trends,
-              findings, root causes, and recommendations.
-            </p>
-          </div>
-          <div className="nexora-card">
-            <UploadDropzone />
-          </div>
-        </div>
-      </motion.div>
+      <WorkspaceEmpty
+        icon={BookOpen}
+        title="No report yet"
+        body="Nexora writes the whole thing for you: executive summary, data quality, KPIs, trends, findings, root causes, and recommendations, ready to export as PDF, Word, or Markdown."
+      />
     );
   }
 
@@ -181,6 +165,10 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 border-b border-white/[0.06] pb-6 md:flex-row md:items-end">
         <div>
+          <span className="no-print mb-2 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-[11px] text-on-surface-variant">
+            <BookOpen className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            Step 3 · Reporting
+          </span>
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-white md:text-[28px]">
             {report.title}
           </h1>
@@ -382,6 +370,9 @@ export default function ReportsPage() {
           );
         })}
       </div>
+
+      {/* The findings behind the wording, each with the evidence attached */}
+      <IntelligencePanel dataset={activeDataset} />
 
       {/* Visual appendix, included in the printed PDF */}
       <div className="space-y-3">
