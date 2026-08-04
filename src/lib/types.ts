@@ -53,14 +53,27 @@ export type CleanOp =
   | { kind: "convertExcelDates"; column: string }
   | { kind: "dropColumn"; column: string }
   | { kind: "findReplace"; column: string | null; find: string; replace: string; matchCase?: boolean }
-  | { kind: "splitColumn"; column: string; delimiter: string; keepOriginal?: boolean };
+  | { kind: "splitColumn"; column: string; delimiter: string; keepOriginal?: boolean }
+  /** winsorize: pull values beyond the 1.5×IQR fences back onto them */
+  | { kind: "capOutliers"; column: string }
+  /** delete the rows holding a value beyond the 1.5×IQR fences */
+  | { kind: "dropOutlierRows"; column: string };
 
 export interface Diagnostic {
   id: string;
   severity: "warning" | "ok";
   title: string;
   description: string;
-  fix?: { op: CleanOp; label: string };
+  fix?: {
+    op: CleanOp;
+    label: string;
+    /** true when applying it is a judgement call, so a bulk "fix everything"
+     *  run must leave it for the analyst to decide deliberately */
+    manual?: boolean;
+  };
+  /** what to do about a finding that has no mechanical remedy. Every finding
+   *  carries a fix or guidance; none is ever a dead end. */
+  guidance?: string;
 }
 
 export interface DatasetHealth {

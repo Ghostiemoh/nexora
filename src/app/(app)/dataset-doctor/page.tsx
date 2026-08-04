@@ -7,6 +7,7 @@ import {
   FileJson,
   FileUp,
   GitBranch,
+  Info,
   Layers,
   Sparkles,
   Stethoscope,
@@ -75,6 +76,7 @@ export default function DatasetDoctorPage() {
   const undoDepth = useNexora((s) => s.undoDepth);
   const applyRecipe = useNexora((s) => s.applyRecipe);
   const recordExport = useNexora((s) => s.recordExport);
+  const notify = useNexora((s) => s.notify);
 
   const activeDataset = datasets.find((d) => d.id === activeId) || null;
 
@@ -95,6 +97,14 @@ export default function DatasetDoctorPage() {
 
   const counts = useMemo(
     () => (activeDataset ? qualityCounts(activeDataset) : null),
+    [activeDataset]
+  );
+
+  // What "Auto-fix all" is actually able to do. Judgement calls (capping
+  // outliers) and findings with no mechanical remedy are not in it, so the
+  // button is never live with nothing behind it.
+  const autoFixable = useMemo(
+    () => (activeDataset?.diagnostics ?? []).filter((d) => d.fix && !d.fix.manual),
     [activeDataset]
   );
 
@@ -124,14 +134,35 @@ export default function DatasetDoctorPage() {
   };
 
   const handleAutoFixAll = async () => {
+    const queue = [...autoFixable];
+    if (queue.length === 0) return;
+
     setFixingId("all");
-    for (const diag of [...activeDataset.diagnostics]) {
-      if (diag.fix?.op) {
-        applyFix(activeDataset.id, diag.fix.op);
-        await new Promise((r) => setTimeout(r, 150));
-      }
+    for (const diag of queue) {
+      applyFix(activeDataset.id, diag.fix!.op);
+      await new Promise((r) => setTimeout(r, 150));
     }
     setFixingId(null);
+
+    // Report the real outcome, read back after the run rather than predicted
+    // before it: each fix re-profiles the data, so findings can clear or
+    // surface along the way. A finished run never looks like a dead button.
+    const after =
+      useNexora.getState().datasets.find((d) => d.id === activeDataset.id)?.diagnostics ?? [];
+    const stillAutomatic = after.filter((d) => d.fix && !d.fix.manual).length;
+    const yourCall = after.length - stillAutomatic;
+
+    const parts: string[] = [];
+    if (yourCall > 0) parts.push(`${yourCall} need${yourCall === 1 ? "s" : ""} your call`);
+    if (stillAutomatic > 0) parts.push(`${stillAutomatic} surfaced behind them, so run it again`);
+
+    notify(
+      "success",
+      `Applied ${queue.length} fix${queue.length === 1 ? "" : "es"}`,
+      parts.length > 0
+        ? `${parts.join(" and ")}.`
+        : "Every finding on this dataset is now resolved."
+    );
   };
 
   const handleExportRecipe = () => {
@@ -285,11 +316,22 @@ export default function DatasetDoctorPage() {
           <button
             type="button"
             onClick={handleAutoFixAll}
-            disabled={activeDataset.diagnostics.length === 0 || fixingId !== null}
-            className="pill h-10 bg-primary px-5 text-[13px] text-on-primary disabled:pointer-events-none disabled:opacity-40"
+            disabled={autoFixable.length === 0 || fixingId !== null}
+            title={
+              autoFixable.length === 0
+                ? activeDataset.diagnostics.length === 0
+                  ? "Nothing left to fix on this dataset"
+                  : "The remaining findings need your judgement, so apply those one at a time below"
+                : `Apply ${autoFixable.length} safe fix${autoFixable.length === 1 ? "" : "es"}`
+            }
+            className="pill h-10 bg-primary px-5 text-[13px] text-on-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            {fixingId === "all" ? "Auto-fixing…" : "Auto-fix all"}
+            {fixingId === "all"
+              ? "Auto-fixing…"
+              : autoFixable.length > 0
+                ? `Auto-fix ${autoFixable.length}`
+                : "Auto-fix all"}
           </button>
         </div>
       </div>
@@ -435,10 +477,25 @@ export default function DatasetDoctorPage() {
                   <div className="flex items-start gap-3">
                     <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
                     <div>
-                      <h3 className="text-sm font-semibold text-white">{diag.title}</h3>
+                      <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                        {diag.title}
+                        {diag.fix?.manual && (
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-on-surface-variant">
+                            Your call
+                          </span>
+                        )}
+                      </h3>
                       <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">
                         {diag.description}
                       </p>
+                      {/* A finding with no mechanical remedy says what to do instead,
+                          rather than sitting there with no control beside it. */}
+                      {!diag.fix && diag.guidance && (
+                        <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5 text-[11px] leading-relaxed text-on-surface-variant">
+                          <Info className="mt-px h-3.5 w-3.5 shrink-0 text-sky-400" aria-hidden="true" />
+                          {diag.guidance}
+                        </p>
+                      )}
                       {preview && (preview.changedCells > 0 || preview.removedRows > 0) && (
                         <p className="mt-1.5 font-mono text-[11px] text-primary/80">
                           {preview.removedRows > 0
@@ -453,7 +510,12 @@ export default function DatasetDoctorPage() {
                       type="button"
                       onClick={() => handleApplyFix(diag.id, diag.fix!.op)}
                       disabled={fixingId !== null}
-                      className="press shrink-0 cursor-pointer rounded-lg border border-primary/20 bg-primary/12 px-3.5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-40"
+                      title={
+                        diag.fix.manual
+                          ? "Left out of Auto-fix all on purpose. Undo is one click away."
+                          : undefined
+                      }
+                      className="press shrink-0 cursor-pointer rounded-lg border border-primary/20 bg-primary/12 px-3.5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {fixingId === diag.id ? "Fixing…" : diag.fix.label}
                     </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Replace, Columns3, ChevronDown } from "lucide-react";
+import { Replace, Columns3, ChevronDown, Scissors } from "lucide-react";
 import type { Dataset, CleanOp } from "@/lib/types";
 import { useNexora } from "@/lib/store";
 import { previewCleanOp } from "@/lib/recipe";
@@ -16,11 +16,12 @@ const DELIMITER_PRESETS = [
   { label: "Custom…", value: "__custom__" },
 ];
 
-/** The Excel-pain toolbar: Find & Replace and Text to Columns, both flowing
- *  through the normal fix pipeline (recorded in the recipe, undoable). */
+/** The Excel-pain toolbar: Find & Replace, Text to Columns, and outlier
+ *  treatment, all flowing through the normal fix pipeline (recorded in the
+ *  recipe, undoable). */
 export function TransformTools({ dataset }: { dataset: Dataset }) {
   const applyFix = useNexora((s) => s.applyFix);
-  const [open, setOpen] = useState<"replace" | "split" | null>(null);
+  const [open, setOpen] = useState<"replace" | "split" | "outliers" | null>(null);
 
   /* Find & Replace state */
   const [frColumn, setFrColumn] = useState<string>("__all__");
@@ -69,7 +70,28 @@ export function TransformTools({ dataset }: { dataset: Dataset }) {
     return cell.split(spDelimiter).map((p) => p.trim());
   }, [dataset, spColumn, spDelimiter]);
 
-  const toggle = (panel: "replace" | "split") =>
+  /* Outlier treatment state. Only columns that actually have values beyond the
+     fences are offered, so the picker never lists a column with nothing to do. */
+  const outlierColumns = dataset.profiles
+    .filter((p) => p.type === "number" && (p.outlierCount ?? 0) > 0)
+    .map((p) => p.name);
+  const [olColumn, setOlColumn] = useState("");
+  const [olMode, setOlMode] = useState<"cap" | "drop">("cap");
+
+  // Falls back to the first affected column, so cleaning away the selected
+  // one leaves a valid choice rather than an empty picker.
+  const activeOlColumn = outlierColumns.includes(olColumn) ? olColumn : (outlierColumns[0] ?? "");
+  const olProfile = dataset.profiles.find((p) => p.name === activeOlColumn);
+  const olKind = olMode === "cap" ? "capOutliers" : "dropOutlierRows";
+  const olOp: CleanOp | null = activeOlColumn ? { kind: olKind, column: activeOlColumn } : null;
+
+  // Left to the compiler to memoize: the column falls back to a derived value,
+  // which a manual dependency list cannot express without defeating it.
+  const olPreview = activeOlColumn
+    ? previewCleanOp(dataset.rows, { kind: olKind, column: activeOlColumn })
+    : null;
+
+  const toggle = (panel: "replace" | "split" | "outliers") =>
     setOpen((prev) => (prev === panel ? null : panel));
 
   const inputCls =
@@ -216,6 +238,111 @@ export function TransformTools({ dataset }: { dataset: Dataset }) {
                   Split
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Outlier treatment ── */}
+        <div className="nexora-card p-4">
+          <button
+            type="button"
+            onClick={() => toggle("outliers")}
+            className="w-full flex items-center justify-between cursor-pointer group"
+          >
+            <span className="flex items-center gap-2.5 text-sm font-semibold text-white">
+              <Scissors className="w-4 h-4 text-primary" />
+              Outliers
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-on-surface-variant transition-transform ${open === "outliers" ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {open === "outliers" && (
+            <div className="mt-4 space-y-3">
+              {outlierColumns.length === 0 ? (
+                <p className="text-xs leading-relaxed text-on-surface-variant">
+                  No numeric column has values beyond its 1.5×IQR fences. Nothing to treat.
+                </p>
+              ) : (
+                <>
+                  <select
+                    value={activeOlColumn}
+                    onChange={(e) => setOlColumn(e.target.value)}
+                    className={`${inputCls} cursor-pointer`}
+                  >
+                    {outlierColumns.map((c) => {
+                      const p = dataset.profiles.find((x) => x.name === c);
+                      return (
+                        <option key={c} value={c}>
+                          {c} — {p?.outlierCount} beyond the fence
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Outlier treatment">
+                    {(
+                      [
+                        ["cap", "Cap at fence"],
+                        ["drop", "Remove rows"],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setOlMode(mode)}
+                        aria-pressed={olMode === mode}
+                        className={`cursor-pointer rounded-lg border px-3 py-2 text-[12px] font-medium transition-colors ${
+                          olMode === mode
+                            ? "border-primary/30 bg-primary/12 text-primary"
+                            : "border-white/10 bg-black/20 text-on-surface-variant hover:bg-white/[0.05]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-[11px] leading-relaxed text-on-surface-variant">
+                    {olMode === "cap"
+                      ? "Winsorizing: extreme values are pulled onto the fence and every row survives, so counts stay comparable."
+                      : "The whole row goes, including its other columns. Use it for records you know are wrong."}
+                    {olProfile?.p25 !== undefined && olProfile.iqr !== undefined && (
+                      <span className="ml-1 font-mono text-on-surface-variant/70">
+                        Fence [{(olProfile.p25 - 1.5 * olProfile.iqr).toFixed(2)} …{" "}
+                        {(olProfile.p75! + 1.5 * olProfile.iqr).toFixed(2)}]
+                      </span>
+                    )}
+                  </p>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-mono text-primary/80">
+                      {olPreview
+                        ? olPreview.removedRows > 0
+                          ? `will remove ${olPreview.removedRows} row(s)`
+                          : olPreview.changedCells > 0
+                            ? `will change ${olPreview.changedCells} cell(s)`
+                            : "nothing to change"
+                        : "pick a column"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={
+                        !olOp ||
+                        !olPreview ||
+                        (olPreview.changedCells === 0 && olPreview.removedRows === 0)
+                      }
+                      onClick={() => {
+                        if (olOp) applyFix(dataset.id, olOp);
+                      }}
+                      className="press px-4 py-2 rounded-lg bg-primary/12 border border-primary/20 text-primary hover:bg-primary/20 text-[12px] font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

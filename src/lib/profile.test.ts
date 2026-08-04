@@ -38,6 +38,52 @@ describe("numeric profiling", () => {
   });
 });
 
+describe("every finding offers a way out", () => {
+  it("hands the outlier finding a fix the user can actually click", () => {
+    const d = ds(["x"], [2, 4, 4, 4, 5, 5, 7, 9].map((x) => ({ x })));
+    const outlier = d.diagnostics.find((diag) => diag.id === "diag_outliers_x");
+    expect(outlier?.fix).toBeDefined();
+    expect(outlier!.fix!.op).toEqual({ kind: "capOutliers", column: "x" });
+    // Winsorizing is a judgement call, so it stays out of the bulk run.
+    expect(outlier!.fix!.manual).toBe(true);
+  });
+
+  it("gives findings with no automatic remedy written guidance instead", () => {
+    // A near-duplicate: same id, one cell differs, so dropDuplicates cannot help.
+    const d = ds(
+      ["order_id", "city"],
+      [
+        { order_id: "A-1", city: "Kano" },
+        { order_id: "A-1", city: "kano " },
+        { order_id: "A-2", city: "Lagos" },
+        { order_id: "A-3", city: "Abuja" },
+        { order_id: "A-4", city: "Jos" },
+      ]
+    );
+    const dupId = d.diagnostics.find((diag) => diag.id.startsWith("diag_dupid_"));
+    expect(dupId).toBeDefined();
+    expect(dupId!.fix).toBeUndefined();
+    expect(dupId!.guidance).toBeTruthy();
+  });
+
+  it("never leaves a finding with neither a fix nor guidance", () => {
+    const d = ds(
+      ["order_id", "city", "amount"],
+      [
+        { order_id: "A-1", city: "Kano", amount: 10 },
+        { order_id: "A-1", city: "kano ", amount: 12 },
+        { order_id: "A-2", city: "LAGOS", amount: 11 },
+        { order_id: "A-3", city: null, amount: 9 },
+        { order_id: "A-4", city: "Jos", amount: 5000 },
+      ]
+    );
+    expect(d.diagnostics.length).toBeGreaterThan(0);
+    for (const diag of d.diagnostics) {
+      expect(Boolean(diag.fix || diag.guidance), `"${diag.title}" is a dead end`).toBe(true);
+    }
+  });
+});
+
 describe("type-inference guards", () => {
   it("keeps leading-zero / id-named columns as strings, not numbers", () => {
     const d = ds(["zip"], ["00123", "00456", "00789", "01010"].map((zip) => ({ zip })));

@@ -1,5 +1,5 @@
 import type { Row, CleanOp, CellValue } from "./types";
-import { parseNumeric } from "./number";
+import { parseNumeric, iqrFences } from "./number";
 
 /* ── mojibake repair ──────────────────────────────────────────────────
  * Mojibake happens when UTF-8 text is read as cp1252 ("–" becomes
@@ -85,8 +85,49 @@ export function titleCase(s: string): string {
   return s.toLowerCase().replace(/(^|[\s\-.'(])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
+/* ── outlier treatment ──────────────────────────────────────────────────
+ * Two standard remedies, both reversible through the undo stack. Capping
+ * (winsorizing) is the conservative one: the row survives, only the extreme
+ * value is pulled onto the fence, so counts and totals stay comparable.
+ * Dropping is for genuine bad records. Neither is applied automatically —
+ * deciding an extreme value is wrong rather than interesting is a judgement
+ * only the analyst can make. */
+
+/** The ascending finite values of a column, for quantile work. */
+function sortedNumbers(rows: Row[], column: string): number[] {
+  const out: number[] = [];
+  for (const row of rows) {
+    const n = parseNumeric(row[column]);
+    if (n !== null) out.push(n);
+  }
+  return out.sort((a, b) => a - b);
+}
+
 export function applyCleanOp(rows: Row[], op: CleanOp): Row[] {
   switch (op.kind) {
+    case "capOutliers": {
+      const fences = iqrFences(sortedNumbers(rows, op.column));
+      if (!fences) return rows;
+      return rows.map((row) => {
+        const n = parseNumeric(row[op.column]);
+        if (n === null) return row;
+        if (n < fences.lo) return { ...row, [op.column]: fences.lo };
+        if (n > fences.hi) return { ...row, [op.column]: fences.hi };
+        return row;
+      });
+    }
+
+    case "dropOutlierRows": {
+      const fences = iqrFences(sortedNumbers(rows, op.column));
+      if (!fences) return rows;
+      return rows.filter((row) => {
+        const n = parseNumeric(row[op.column]);
+        // A blank is a completeness problem, not an accuracy one. Leave it.
+        if (n === null) return true;
+        return n >= fences.lo && n <= fences.hi;
+      });
+    }
+
     case "dropDuplicates": {
       const seen = new Set<string>();
       return rows.filter((row) => {

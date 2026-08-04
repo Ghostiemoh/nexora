@@ -57,6 +57,31 @@ export function isIdentifierName(name: string): boolean {
   return ID_EXACT.has(name.toLowerCase().replace(/[^a-z0-9]/g, ""));
 }
 
+/** Percentile by linear interpolation between the two nearest ranks, the same
+ *  method Excel's PERCENTILE and numpy's default use. `sorted` must be ascending. */
+export function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return NaN;
+  if (sorted.length === 1) return sorted[0];
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  const frac = idx - lo;
+  return sorted[lo] * (1 - frac) + sorted[hi] * frac;
+}
+
+/** The 1.5×IQR fences Tukey's rule draws around the middle half of the data.
+ *  One source of truth, so the count a finding reports and the values a fix
+ *  touches can never disagree. Returns null when there is too little data for
+ *  the quartiles to mean anything. `sorted` must be ascending. */
+export function iqrFences(sorted: number[]): { lo: number; hi: number } | null {
+  if (sorted.length < 4) return null;
+  const p25 = percentile(sorted, 25);
+  const p75 = percentile(sorted, 75);
+  const iqr = p75 - p25;
+  return { lo: p25 - 1.5 * iqr, hi: p75 + 1.5 * iqr };
+}
+
 /** True when a numeric column is a row index in disguise: 0- or 1-based
  *  integers forming a consecutive, row-ordered run (adjacent duplicates from
  *  copy-pasted rows tolerated). Consecutive runs starting elsewhere (e.g.

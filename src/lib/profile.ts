@@ -1,5 +1,11 @@
 import type { Dataset, Row, ColumnProfile, Diagnostic, DatasetHealth, ColumnType } from "./types";
-import { parseNumeric, hasLeadingZeroId, isIdentifierName, isSequentialIndex } from "./number";
+import {
+  parseNumeric,
+  hasLeadingZeroId,
+  isIdentifierName,
+  isSequentialIndex,
+  percentile,
+} from "./number";
 import { MOJIBAKE_RE, isExcelDateSerial, excelSerialToIso } from "./clean";
 
 /** Strict date formats. We require a recognised shape *and* a parseable value so
@@ -28,18 +34,6 @@ function isBooleanLike(value: unknown): boolean {
   if (typeof value === "boolean") return true;
   const s = String(value).trim().toLowerCase();
   return s === "true" || s === "false";
-}
-
-/** Linear-interpolation percentile (matches numpy/pandas default and Excel). */
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return NaN;
-  if (sorted.length === 1) return sorted[0];
-  const idx = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  const frac = idx - lo;
-  return sorted[lo] * (1 - frac) + sorted[hi] * frac;
 }
 
 const r2 = (n: number) => parseFloat(n.toFixed(2));
@@ -384,7 +378,8 @@ export function profileDataset(raw: {
       id: `diag_dupid_${col}`,
       severity: "warning",
       title: `Repeated IDs in '${col}'`,
-      description: `'${col}' looks like a unique identifier but has repeated values, which often means two rows are near-duplicates that differ in one cell. Repair the encoding, whitespace, and typos first, then check duplicates again.`,
+      description: `'${col}' looks like a unique identifier but has repeated values, which often means two rows are near-duplicates that differ in one cell.`,
+      guidance: `No safe automatic fix: dropping rows on a key alone would discard real edits. Apply the spacing, casing, and encoding fixes above, then re-check duplicates. To inspect them, sort by '${col}' in the data table or run a GROUP BY in SQL Lab.`,
     });
   });
 
@@ -451,14 +446,23 @@ export function profileDataset(raw: {
     }
   });
 
-  // Outlier warnings per numeric column (informational, no automatic fix).
+  // Outlier warnings per numeric column. The remedy is offered but held back
+  // from the bulk run: an extreme value can be a data-entry error or the most
+  // interesting row in the file, and only the analyst knows which.
   profiles.forEach((p) => {
     if (p.type === "number" && p.outlierCount && p.outlierCount > 0) {
+      const lo = r2(p.p25! - 1.5 * p.iqr!);
+      const hi = r2(p.p75! + 1.5 * p.iqr!);
       diagnostics.push({
         id: `diag_outliers_${p.name}`,
         severity: "warning",
         title: `Outliers in '${p.name}'`,
-        description: `${p.outlierCount} value(s) fall outside the expected range [${p.p25! - 1.5 * p.iqr!} … ${p.p75! + 1.5 * p.iqr!}] (1.5×IQR). Review before averaging.`,
+        description: `${p.outlierCount} value(s) fall outside the expected range [${lo} … ${hi}] (1.5×IQR). Capping pulls them onto the fence and keeps every row; check them first, since a real extreme is often the finding, not the error.`,
+        fix: {
+          op: { kind: "capOutliers", column: p.name },
+          label: "Cap at fence",
+          manual: true,
+        },
       });
     }
   });

@@ -404,6 +404,11 @@ export const useNexora = create<NexoraState>()(
           logMsg = `Replaced "${op.find}" with "${op.replace}" in ${op.column ? `column '${op.column}'` : "all text columns"}.`;
         } else if (op.kind === "splitColumn") {
           logMsg = `Split column '${op.column}' on "${op.delimiter}" (Text to Columns).`;
+        } else if (op.kind === "capOutliers") {
+          logMsg = `Capped outliers in '${op.column}' at the 1.5×IQR fences (winsorized).`;
+        } else if (op.kind === "dropOutlierRows") {
+          const removed = dataset.rows.length - cleanedRows.length;
+          logMsg = `Removed ${removed} row(s) with an out-of-fence value in '${op.column}'.`;
         }
 
         let nextColumns = dataset.columns;

@@ -26,6 +26,9 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
   if (dismissed) return null;
 
   const openIssues = dataset.diagnostics.filter((d) => d.severity === "warning").length;
+  // How many of those the bulk button can actually take, so the promise here
+  // matches what the button does when it is pressed.
+  const autoIssues = dataset.diagnostics.filter((d) => d.fix && !d.fix.manual).length;
   const exported = exportHistory.some((e) => e.datasetId === dataset.id);
 
   const steps: Step[] = [
@@ -42,7 +45,9 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
       detail:
         openIssues === 0
           ? "No open issues. The numbers downstream can be trusted."
-          : `${openIssues} issue${openIssues === 1 ? "" : "s"} found. Auto-fix all clears most of them in one click.`,
+          : autoIssues > 0
+            ? `${openIssues} issue${openIssues === 1 ? "" : "s"} found. Auto-fix clears ${autoIssues} of them in one click.`
+            : `${openIssues} issue${openIssues === 1 ? "" : "s"} left, each needing a call only you can make.`,
       done: openIssues === 0,
       action: { label: openIssues === 0 ? "Review quality" : "Fix them", href: "/dataset-doctor" },
     },

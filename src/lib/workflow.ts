@@ -60,6 +60,10 @@ export function describeCleanOp(op: CleanOp): string {
       return `Replace "${op.find}" with "${op.replace}" in ${op.column ? `'${op.column}'` : "all text columns"}`;
     case "splitColumn":
       return `Split '${op.column}' on "${op.delimiter}"`;
+    case "capOutliers":
+      return `Cap outliers in '${op.column}' at the 1.5×IQR fences`;
+    case "dropOutlierRows":
+      return `Remove rows with an out-of-fence value in '${op.column}'`;
   }
 }
 

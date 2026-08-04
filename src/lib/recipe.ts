@@ -24,7 +24,7 @@ export function serializeRecipe(recipe: Recipe): string {
 const OP_KINDS = new Set([
   "dropDuplicates", "dropEmptyRows", "trimWhitespace", "fillMissing",
   "fixEncoding", "standardizeCase", "mergeValues", "convertExcelDates", "dropColumn",
-  "findReplace", "splitColumn",
+  "findReplace", "splitColumn", "capOutliers", "dropOutlierRows",
 ]);
 
 /** Parse and validate recipe JSON. Throws with a human-readable message. */
