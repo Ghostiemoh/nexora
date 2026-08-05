@@ -8,7 +8,14 @@ import { Bell, HardDrive, Menu, Plus, Search, Settings, X } from "lucide-react";
 import { useNexora } from "../../lib/store";
 import { AuthModal } from "./auth-modal";
 import { NexoraMark } from "./nexora-mark";
-import { NAV_ITEMS, NAV_SECTIONS, WORKFLOW_NAV, HOME_HREF, isNavActive } from "../../lib/nav";
+import {
+  NAV_ITEMS,
+  NAV_SECTIONS,
+  WORKFLOW_NAV,
+  HOME_HREF,
+  SITE_HREF,
+  isNavActive,
+} from "../../lib/nav";
 import { searchTargets, SETTING_TARGETS, type SearchTarget } from "../../lib/search";
 
 function levelDot(level: string): string {
@@ -122,7 +129,7 @@ export function TopNavbar() {
           {/* The mark is a home button on small screens, where the sidebar
               carrying it is not on screen. */}
           <Link
-            href={HOME_HREF}
+            href={SITE_HREF}
             aria-label="Nexora home"
             className="press flex h-10 w-10 items-center justify-center rounded-lg hover:bg-white/5 lg:hidden"
           >

@@ -4,6 +4,7 @@ import {
   NAV_SECTIONS,
   WORKFLOW_NAV,
   HOME_HREF,
+  SITE_HREF,
   findNavItem,
   isNavActive,
   nextStep,
@@ -90,14 +91,31 @@ describe("nextStep", () => {
 });
 
 describe("buildBreadcrumbs", () => {
-  it("gives home no link when you are already home", () => {
-    expect(buildBreadcrumbs("/launch")).toEqual([{ label: "Home", href: undefined }]);
+  it("gives home no link only when you are already standing on it", () => {
+    expect(buildBreadcrumbs(SITE_HREF)).toEqual([{ label: "Home", href: undefined }]);
   });
 
   it("links home and names the current section", () => {
     expect(buildBreadcrumbs("/workflows")).toEqual([
-      { label: "Home", href: "/launch" },
+      { label: "Home", href: SITE_HREF },
       { label: "Workflows" },
+    ]);
+  });
+
+  /* The bug this locks shut: every app route pointed "Home" at the dataset
+   * picker, so nothing anywhere in the workspace could reach the front door. */
+  it("reaches the front door from every route in the app", () => {
+    for (const item of NAV_ITEMS) {
+      const home = buildBreadcrumbs(item.href)[0];
+      expect(home.label, `${item.href} lost its Home crumb`).toBe("Home");
+      expect(home.href, `${item.href} cannot get back to the front door`).toBe(SITE_HREF);
+    }
+  });
+
+  it("names the dataset picker as its own crumb rather than calling it Home", () => {
+    expect(buildBreadcrumbs(HOME_HREF)).toEqual([
+      { label: "Home", href: SITE_HREF },
+      { label: "Datasets" },
     ]);
   });
 
@@ -107,9 +125,10 @@ describe("buildBreadcrumbs", () => {
     expect(crumbs.at(-1)!.href).toBeUndefined();
   });
 
-  it("still shows the dataset on the home route", () => {
-    expect(buildBreadcrumbs("/launch", "sales.csv").map((c) => c.label)).toEqual([
+  it("still shows the dataset on the picker route", () => {
+    expect(buildBreadcrumbs(HOME_HREF, "sales.csv").map((c) => c.label)).toEqual([
       "Home",
+      "Datasets",
       "sales.csv",
     ]);
   });

@@ -48,8 +48,13 @@ export interface NavItem {
   badge?: boolean;
 }
 
-/** Home is the dataset picker, never a dataset. Opening Nexora must not decide
- *  on your behalf which file you meant to work on. */
+/** The site's front door. "Home" has to mean this, because it is what everyone
+ *  means by home — and until now nothing inside the app linked back to it, so
+ *  entering the workspace was a one-way trip. */
+export const SITE_HREF = "/";
+
+/** Where the app itself starts: the dataset picker, never a dataset. Opening
+ *  Nexora must not decide on your behalf which file you meant to work on. */
 export const HOME_HREF = "/launch";
 
 export const NAV_ITEMS: NavItem[] = [
@@ -209,14 +214,18 @@ export interface Crumb {
 }
 
 /** Breadcrumb trail: Home → section → active dataset. The dataset crumb is what
- *  makes the trail useful here, since every section reads the same active file. */
+ *  makes the trail useful here, since every section reads the same active file.
+ *
+ *  The first crumb goes to the site's front door, and it is only unlinked when
+ *  you are already standing on it. A trail whose "Home" cannot reach home is
+ *  not a trail. */
 export function buildBreadcrumbs(pathname: string, datasetName?: string | null): Crumb[] {
   const item = findNavItem(pathname);
-  const onHome = pathname === HOME_HREF;
+  const atFrontDoor = pathname === SITE_HREF;
 
-  const crumbs: Crumb[] = [{ label: "Home", href: onHome ? undefined : HOME_HREF }];
+  const crumbs: Crumb[] = [{ label: "Home", href: atFrontDoor ? undefined : SITE_HREF }];
 
-  if (item && !onHome) {
+  if (item) {
     crumbs.push({ label: item.label });
   }
 

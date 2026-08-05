@@ -6,7 +6,14 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, type LucideIcon } from "lucide-react";
 import { useNexora } from "../../lib/store";
-import { NAV_SECTIONS, UTILITY_NAV, HOME_HREF, isNavActive, type NavItem } from "../../lib/nav";
+import {
+  NAV_SECTIONS,
+  UTILITY_NAV,
+  HOME_HREF,
+  SITE_HREF,
+  isNavActive,
+  type NavItem,
+} from "../../lib/nav";
 import { NexoraMark } from "./nexora-mark";
 
 function NavRow({
@@ -87,9 +94,11 @@ export function AppSidebar() {
 
   return (
     <aside className="glass-panel hidden h-full w-64 shrink-0 select-none flex-col border-y-0 border-l-0 px-3 py-5 lg:flex">
-      {/* Brand, and the shortest path home from anywhere */}
+      {/* Brand, and the shortest path home from anywhere. The mark goes to the
+          front door the way a logo always does; the Datasets row right below it
+          is how you get to the picker. */}
       <Link
-        href={HOME_HREF}
+        href={SITE_HREF}
         aria-label="Nexora home"
         className="press mb-6 flex items-center gap-2.5 px-2"
       >
