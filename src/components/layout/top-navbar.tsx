@@ -4,11 +4,12 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Bell, Menu, Plus, Search, Settings, X } from "lucide-react";
+import { Bell, HardDrive, Menu, Plus, Search, Settings, X } from "lucide-react";
 import { useNexora } from "../../lib/store";
 import { AuthModal } from "./auth-modal";
 import { NexoraMark } from "./nexora-mark";
 import { NAV_ITEMS, NAV_SECTIONS, WORKFLOW_NAV, HOME_HREF, isNavActive } from "../../lib/nav";
+import { searchTargets, SETTING_TARGETS, type SearchTarget } from "../../lib/search";
 
 function levelDot(level: string): string {
   if (level === "error") return "bg-red-400";
@@ -17,12 +18,14 @@ function levelDot(level: string): string {
   return "bg-sky-400";
 }
 
-interface SearchHit {
-  id: string;
-  label: string;
-  hint: string;
-  run: () => void;
-}
+/** What each kind of result is called in the row's caption. */
+const SEARCH_KIND_LABEL: Record<string, string> = {
+  page: "Page",
+  tool: "Tool",
+  dataset: "Dataset",
+  column: "Column",
+  setting: "Setting",
+};
 
 export function TopNavbar() {
   const pathname = usePathname();
@@ -51,51 +54,52 @@ export function TopNavbar() {
     });
   };
 
-  /* Search covers the three things you actually look for in a workspace: a
-   * page, a loaded dataset, or a column inside the active one. */
-  const hits = useMemo<SearchHit[]>(() => {
-    const q = query.trim().toLowerCase();
-    if (q.length < 1) return [];
-    const out: SearchHit[] = [];
+  /* Everything search can reach: the pages, the loaded datasets, the columns of
+   * the one in hand, and the settings. Built as plain data so the ranking is
+   * the search module's job rather than something re-invented here. */
+  const targets = useMemo<SearchTarget[]>(() => {
+    const out: SearchTarget[] = NAV_ITEMS.map((item) => ({
+      id: `nav-${item.href}`,
+      label: item.label,
+      kind: item.group === "workflow" && item.step ? "page" : "tool",
+      hint: item.step ? `Step ${item.step}` : "Page",
+      keywords: item.description.toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 3),
+    }));
 
-    for (const item of NAV_ITEMS) {
-      if (item.label.toLowerCase().includes(q)) {
-        out.push({
-          id: `nav-${item.href}`,
-          label: item.label,
-          hint: "Page",
-          run: () => router.push(item.href),
-        });
-      }
-    }
     for (const dataset of datasets) {
-      if (dataset.name.toLowerCase().includes(q)) {
-        out.push({
-          id: `ds-${dataset.id}`,
-          label: dataset.name,
-          hint: `Dataset · ${dataset.rows.length.toLocaleString("en-US")} rows`,
-          run: () => setActive(dataset.id),
-        });
-      }
+      out.push({
+        id: `ds-${dataset.id}`,
+        label: dataset.name,
+        kind: "dataset",
+        hint: `${dataset.rows.length.toLocaleString("en-US")} rows`,
+        keywords: ["dataset", "file", "open", "switch"],
+      });
     }
+
     if (activeDataset) {
       for (const column of activeDataset.columns) {
-        if (column.toLowerCase().includes(q)) {
-          const type = activeDataset.profiles.find((p) => p.name === column)?.type ?? "column";
-          out.push({
-            id: `col-${column}`,
-            label: column,
-            hint: `${type} in ${activeDataset.name}`,
-            run: () => router.push("/dataset-doctor#schema"),
-          });
-        }
+        const type = activeDataset.profiles.find((p) => p.name === column)?.type ?? "column";
+        out.push({
+          id: `col-${column}`,
+          label: column,
+          kind: "column",
+          hint: `${type} column`,
+          keywords: ["column", "field", type],
+        });
       }
     }
-    return out.slice(0, 8);
-  }, [query, datasets, activeDataset, router, setActive]);
 
-  const runHit = (hit: SearchHit) => {
-    hit.run();
+    return [...out, ...SETTING_TARGETS];
+  }, [datasets, activeDataset]);
+
+  const hits = useMemo(() => searchTargets(query, targets, 8), [query, targets]);
+
+  const runHit = (hit: { id: string }) => {
+    if (hit.id.startsWith("nav-")) router.push(hit.id.slice(4));
+    else if (hit.id.startsWith("ds-")) setActive(hit.id.slice(3));
+    else if (hit.id.startsWith("col-")) router.push("/dataset-doctor#schema");
+    else router.push("/settings");
+
     setQuery("");
     setIsSearchOpen(false);
   };
@@ -161,22 +165,39 @@ export function TopNavbar() {
               >
                 {hits.length === 0 ? (
                   <p className="px-3 py-4 text-center text-xs text-on-surface-variant">
-                    Nothing matches “{query.trim()}”.
+                    Nothing matches “{query.trim()}”. Try a page, a dataset, a column, or a setting.
                   </p>
                 ) : (
-                  hits.map((hit) => (
+                  hits.map((hit, index) => (
                     <button
                       key={hit.id}
                       type="button"
                       role="option"
-                      aria-selected={false}
+                      aria-selected={index === 0}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => runHit(hit)}
                       className="press flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
                     >
-                      <span className="truncate text-[13px] text-on-surface">{hit.label}</span>
-                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-on-surface-variant">
-                        {hit.hint}
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        {/* The matched span is emphasised in place, so why a row
+                            came back is visible rather than something to infer. */}
+                        <span className="truncate text-[13px] text-on-surface-variant">
+                          {hit.segments.map((segment, i) =>
+                            segment.match ? (
+                              <mark
+                                key={i}
+                                className="bg-transparent font-semibold text-primary"
+                              >
+                                {segment.text}
+                              </mark>
+                            ) : (
+                              <span key={i}>{segment.text}</span>
+                            )
+                          )}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-on-surface-variant/70">
+                        {SEARCH_KIND_LABEL[hit.kind]} · {hit.hint}
                       </span>
                     </button>
                   ))
@@ -266,8 +287,18 @@ export function TopNavbar() {
           <Link href="/settings" className="press flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface" aria-label="Settings">
             <Settings className="h-[18px] w-[18px]" aria-hidden="true" />
           </Link>
-          <button type="button" onClick={() => setIsAuthOpen(true)} aria-label="Open local profile" className="press flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-[12px] font-semibold text-primary">
-            M
+          {/* No account exists, so no initials and no avatar stand in for one.
+              The indicator says what is actually true: the workspace is this
+              browser. */}
+          <button
+            type="button"
+            onClick={() => setIsAuthOpen(true)}
+            title="This workspace is local to your browser"
+            className="press flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-white/[0.09] bg-white/[0.03] px-2.5 text-on-surface-variant hover:bg-white/[0.07] hover:text-on-surface sm:px-3"
+          >
+            <HardDrive className="h-[15px] w-[15px] shrink-0 text-primary" aria-hidden="true" />
+            <span className="hidden text-[12.5px] font-medium lg:inline">Local Workspace</span>
+            <span className="text-[12.5px] font-medium lg:hidden">Local</span>
           </button>
         </div>
 

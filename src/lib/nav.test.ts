@@ -16,9 +16,19 @@ describe("nav map", () => {
     expect(new Set(NAV_ITEMS.map((i) => i.label)).size).toBe(NAV_ITEMS.length);
   });
 
-  it("orders the workflow as Dataset Doctor, Dashboard, Reports", () => {
-    expect(WORKFLOW_NAV.map((i) => i.label)).toEqual(["Dataset Doctor", "Dashboard", "Reports"]);
-    expect(WORKFLOW_NAV.map((i) => i.step)).toEqual([1, 2, 3]);
+  it("orders the workflow as Dataset Doctor, Pivot Tables, Dashboard, Reports", () => {
+    expect(WORKFLOW_NAV.map((i) => i.label)).toEqual([
+      "Dataset Doctor",
+      "Pivot Tables",
+      "Dashboard",
+      "Reports",
+    ]);
+    expect(WORKFLOW_NAV.map((i) => i.step)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("numbers the workflow steps consecutively from one", () => {
+    const steps = WORKFLOW_NAV.map((i) => i.step);
+    expect(steps).toEqual(steps.map((_, i) => i + 1));
   });
 
   it("routes home to the dataset picker, not to a dataset", () => {
@@ -64,7 +74,8 @@ describe("isNavActive", () => {
 
 describe("nextStep", () => {
   it("walks the workflow forward one page at a time", () => {
-    expect(nextStep("/dataset-doctor")?.href).toBe("/dashboard");
+    expect(nextStep("/dataset-doctor")?.href).toBe("/pivot");
+    expect(nextStep("/pivot")?.href).toBe("/dashboard");
     expect(nextStep("/dashboard")?.href).toBe("/reports");
   });
 

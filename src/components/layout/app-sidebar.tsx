@@ -22,7 +22,7 @@ function NavRow({
   icon: LucideIcon;
   active: boolean;
   badge?: boolean;
-  step?: 1 | 2 | 3;
+  step?: NavItem["step"];
 }) {
   return (
     <Link

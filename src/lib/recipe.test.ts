@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { buildRecipe, serializeRecipe, parseRecipe, replayRecipe, previewCleanOp } from "./recipe";
+import {
+  buildRecipe,
+  serializeRecipe,
+  parseRecipe,
+  replayRecipe,
+  previewCleanOp,
+  diffCleanOp,
+  changeKey,
+} from "./recipe";
 import { buildDashboard } from "./auto-dashboard";
 import { profileDataset } from "./profile";
 import type { Row, CleanOp } from "./types";
@@ -111,5 +119,87 @@ describe("cross-filter and new insights", () => {
   it("emits a Pareto concentration insight when few categories dominate", () => {
     const spec = buildDashboard(ds);
     expect(spec.insights.some((i) => i.startsWith("Pareto:"))).toBe(true);
+  });
+});
+
+describe("diffCleanOp", () => {
+  const messy: Row[] = [
+    { name: "  Ada  ", city: "Kano", amount: 10 },
+    { name: "Bob", city: "kano", amount: 20 },
+    { name: "Bob", city: "kano", amount: 20 },
+    { name: "Cleo", city: "Jos", amount: 30 },
+  ];
+  const columns = ["name", "city", "amount"];
+
+  it("names the exact cells a value-changing op rewrites", () => {
+    const diff = diffCleanOp(messy, columns, { kind: "trimWhitespace" });
+
+    expect(diff.changedCells).toBe(1);
+    expect(diff.changed.get(changeKey(0, "name"))).toEqual({
+      rowIndex: 0,
+      column: "name",
+      before: "  Ada  ",
+      after: "Ada",
+    });
+  });
+
+  it("reports which columns an op touches", () => {
+    const diff = diffCleanOp(messy, columns, { kind: "trimWhitespace" });
+    expect(diff.affectedColumns).toEqual(["name"]);
+  });
+
+  it("identifies the rows a filtering op drops, by index", () => {
+    const diff = diffCleanOp(messy, columns, { kind: "dropDuplicates" });
+
+    expect(diff.removedRows).toEqual([2]);
+    expect(diff.rows).toHaveLength(3);
+    expect(diff.changedCells).toBe(0);
+  });
+
+  it("identifies every dropped row when several go", () => {
+    const rows: Row[] = [{ a: 1 }, { a: 1 }, { a: 2 }, { a: 1 }, { a: 2 }];
+    const diff = diffCleanOp(rows, ["a"], { kind: "dropDuplicates" });
+    expect(diff.removedRows).toEqual([1, 3, 4]);
+  });
+
+  it("reports a dropped column as removed rather than as changed cells", () => {
+    const diff = diffCleanOp(messy, columns, { kind: "dropColumn", column: "city" });
+
+    expect(diff.removedColumns).toEqual(["city"]);
+    expect(diff.addedColumns).toEqual([]);
+  });
+
+  it("reports the columns a split adds", () => {
+    const rows: Row[] = [{ full: "Ada Lovelace" }, { full: "Bob Marley" }];
+    const diff = diffCleanOp(rows, ["full"], {
+      kind: "splitColumn",
+      column: "full",
+      delimiter: " ",
+    });
+
+    expect(diff.addedColumns).toEqual(["full_1", "full_2"]);
+  });
+
+  it("caps the detail it keeps but never the count", () => {
+    const wide: Row[] = Array.from({ length: 200 }, () => ({ a: "  x  " }));
+    const diff = diffCleanOp(wide, ["a"], { kind: "trimWhitespace" }, 10);
+
+    expect(diff.changed.size).toBe(10);
+    expect(diff.changedCells).toBe(200);
+  });
+
+  it("finds nothing to change on data that is already clean", () => {
+    const clean: Row[] = [{ a: "x" }, { a: "y" }];
+    const diff = diffCleanOp(clean, ["a"], { kind: "trimWhitespace" });
+
+    expect(diff.changedCells).toBe(0);
+    expect(diff.removedRows).toEqual([]);
+    expect(diff.affectedColumns).toEqual([]);
+  });
+
+  it("leaves the original rows untouched", () => {
+    const before = JSON.stringify(messy);
+    diffCleanOp(messy, columns, { kind: "trimWhitespace" });
+    expect(JSON.stringify(messy)).toBe(before);
   });
 });

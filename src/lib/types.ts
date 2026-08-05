@@ -59,9 +59,29 @@ export type CleanOp =
   /** delete the rows holding a value beyond the 1.5×IQR fences */
   | { kind: "dropOutlierRows"; column: string };
 
+/** The class of problem a finding reports. Skipping works at this level as well
+ *  as per-finding, so "never flag whitespace in this file" is one click. */
+export type DiagnosticRule =
+  | "index"
+  | "encoding"
+  | "excelSerial"
+  | "duplicates"
+  | "duplicateIds"
+  | "emptyRows"
+  | "whitespace"
+  | "casing"
+  | "variant"
+  | "missing"
+  | "outlier"
+  | "typeMismatch";
+
 export interface Diagnostic {
   id: string;
   severity: "warning" | "ok";
+  /** the class of problem, used to skip a whole rule at once */
+  rule: DiagnosticRule;
+  /** the column the finding is about, when it is scoped to one */
+  column?: string;
   title: string;
   description: string;
   fix?: {
@@ -74,6 +94,9 @@ export interface Diagnostic {
   /** what to do about a finding that has no mechanical remedy. Every finding
    *  carries a fix or guidance; none is ever a dead end. */
   guidance?: string;
+  /** the analyst marked this intentional: it stays visible, stops being offered
+   *  for bulk fixing, and no longer counts against the health score */
+  skipped?: boolean;
 }
 
 export interface DatasetHealth {
@@ -101,6 +124,8 @@ export interface Dataset {
   truncated: boolean;
   /** every cleaning op applied, in order, exportable and replayable */
   recipe?: CleanOp[];
+  /** findings and rules marked intentional, excluded from the health score */
+  skips?: string[];
 }
 
 export interface AxiomTable {

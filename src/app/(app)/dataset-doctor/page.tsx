@@ -9,6 +9,7 @@ import {
   GitBranch,
   Info,
   Layers,
+  ShieldCheck,
   Sparkles,
   Stethoscope,
   TrendingUp,
@@ -25,6 +26,7 @@ import { GettingStarted } from "@/components/getting-started";
 import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
 import { NextStep } from "@/components/layout/next-step";
 import { SectionNav, type SectionLink } from "@/components/section-nav";
+import { LiveWorkbench } from "@/components/doctor/live-workbench";
 import { buildRecipe, serializeRecipe, parseRecipe, previewCleanOp, type OpPreview } from "@/lib/recipe";
 import type { CleanOp, Dataset } from "@/lib/types";
 
@@ -34,6 +36,7 @@ const SECTIONS: SectionLink[] = [
   { id: "overview", label: "Overview" },
   { id: "dimensions", label: "Quality dimensions" },
   { id: "findings", label: "Findings & fixes" },
+  { id: "cells", label: "Cells & live preview" },
   { id: "schema", label: "Columns & types" },
   { id: "tools", label: "Cleaning tools" },
 ];
@@ -74,6 +77,8 @@ export default function DatasetDoctorPage() {
   const applyFix = useNexora((s) => s.applyFix);
   const undoFix = useNexora((s) => s.undoFix);
   const undoDepth = useNexora((s) => s.undoDepth);
+  const skipDiagnostic = useNexora((s) => s.skipDiagnostic);
+  const unskipDiagnostic = useNexora((s) => s.unskipDiagnostic);
   const applyRecipe = useNexora((s) => s.applyRecipe);
   const recordExport = useNexora((s) => s.recordExport);
   const notify = useNexora((s) => s.notify);
@@ -101,10 +106,20 @@ export default function DatasetDoctorPage() {
   );
 
   // What "Auto-fix all" is actually able to do. Judgement calls (capping
-  // outliers) and findings with no mechanical remedy are not in it, so the
-  // button is never live with nothing behind it.
+  // outliers), findings with no mechanical remedy, and anything marked
+  // intentional are not in it, so the button is never live with nothing behind
+  // it and never undoes a decision the analyst already made.
   const autoFixable = useMemo(
-    () => (activeDataset?.diagnostics ?? []).filter((d) => d.fix && !d.fix.manual),
+    () => (activeDataset?.diagnostics ?? []).filter((d) => d.fix && !d.fix.manual && !d.skipped),
+    [activeDataset]
+  );
+
+  const openFindings = useMemo(
+    () => (activeDataset?.diagnostics ?? []).filter((d) => !d.skipped),
+    [activeDataset]
+  );
+  const skippedFindings = useMemo(
+    () => (activeDataset?.diagnostics ?? []).filter((d) => d.skipped),
     [activeDataset]
   );
 
@@ -397,6 +412,15 @@ export default function DatasetDoctorPage() {
             <p className="mt-auto border-t border-white/[0.06] pt-4 text-[11.5px] leading-relaxed text-on-surface-variant">
               The mean of the four dimensions below, weighted equally. Applying a fix recomputes it
               immediately.
+              {skippedFindings.length > 0 && (
+                <>
+                  {" "}
+                  <span className="text-emerald-300/90">
+                    {skippedFindings.length} finding{skippedFindings.length === 1 ? "" : "s"} you
+                    marked intentional {skippedFindings.length === 1 ? "is" : "are"} excluded.
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
@@ -456,21 +480,23 @@ export default function DatasetDoctorPage() {
             Findings &amp; fixes
           </h2>
           <span className="font-mono text-[11px] text-on-surface-variant">
-            {activeDataset.diagnostics.length} open
+            {openFindings.length} open
+            {skippedFindings.length > 0 && ` · ${skippedFindings.length} intentional`}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
-          {activeDataset.diagnostics.length === 0 ? (
+          {openFindings.length === 0 ? (
             <div className="nexora-card flex flex-col items-center justify-center p-10 text-center lg:col-span-2">
               <CheckCircle2 className="mb-3 h-8 w-8 text-emerald-400" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">All clear</span>
               <span className="mt-1.5 max-w-[38ch] text-xs leading-relaxed text-on-surface-variant">
-                No anomalies, duplicate rows, or format issues detected. This data is safe to build a
-                dashboard on.
+                {skippedFindings.length > 0
+                  ? "Everything left has been marked intentional. This data is ready to summarize."
+                  : "No anomalies, duplicate rows, or format issues detected. This data is safe to build a dashboard on."}
               </span>
             </div>
           ) : (
-            activeDataset.diagnostics.map((diag) => {
+            openFindings.map((diag) => {
               const preview = previews.get(diag.id);
               return (
                 <div key={diag.id} className="nexora-card flex items-start justify-between gap-4 p-4">
@@ -505,26 +531,84 @@ export default function DatasetDoctorPage() {
                       )}
                     </div>
                   </div>
-                  {diag.fix && (
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {diag.fix && (
+                      <button
+                        type="button"
+                        onClick={() => handleApplyFix(diag.id, diag.fix!.op)}
+                        disabled={fixingId !== null}
+                        title={
+                          diag.fix.manual
+                            ? "Left out of Auto-fix all on purpose. Undo is one click away."
+                            : undefined
+                        }
+                        className="press w-full cursor-pointer rounded-lg border border-primary/20 bg-primary/12 px-3.5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {fixingId === diag.id ? "Fixing…" : diag.fix.label}
+                      </button>
+                    )}
+                    {/* Some findings are correct data. Saying so is a first-class
+                        answer, not a workaround. */}
                     <button
                       type="button"
-                      onClick={() => handleApplyFix(diag.id, diag.fix!.op)}
+                      onClick={() => skipDiagnostic(activeDataset.id, diag.id, diag.title)}
                       disabled={fixingId !== null}
-                      title={
-                        diag.fix.manual
-                          ? "Left out of Auto-fix all on purpose. Undo is one click away."
-                          : undefined
-                      }
-                      className="press shrink-0 cursor-pointer rounded-lg border border-primary/20 bg-primary/12 px-3.5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      title="This is intentional. Stop counting it against the health score."
+                      className="press cursor-pointer rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface disabled:opacity-40"
                     >
-                      {fixingId === diag.id ? "Fixing…" : diag.fix.label}
+                      Mark intentional
                     </button>
-                  )}
+                  </div>
                 </div>
               );
             })
           )}
         </div>
+
+        {skippedFindings.length > 0 && (
+          <div className="nexora-card mt-3 p-4">
+            <div className="mb-2.5 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+              <h3 className="text-[13px] font-semibold text-white">Marked intentional</h3>
+              <span className="text-[11px] text-on-surface-variant">
+                still visible, no longer scored
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {skippedFindings.map((diag) => (
+                <div
+                  key={diag.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                >
+                  <span className="min-w-0 truncate text-[12px] text-on-surface-variant">
+                    {diag.title}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => unskipDiagnostic(activeDataset.id, diag.id)}
+                    className="press shrink-0 cursor-pointer rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-on-surface-variant hover:bg-white/[0.06] hover:text-on-surface"
+                  >
+                    Put back under review
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Cell-level detail, and the data itself ── */}
+      <section id="cells" aria-labelledby="cells-heading" className="scroll-mt-32">
+        <div className="px-1 pb-3">
+          <h2 id="cells-heading" className="text-lg font-semibold tracking-tight text-white">
+            Cells &amp; live preview
+          </h2>
+          <p className="mt-0.5 max-w-[74ch] text-xs leading-relaxed text-on-surface-variant">
+            Every problem located by sheet, column, row, and cell reference. Preview a fix to see
+            the exact before and after in the grid below before anything is committed.
+          </p>
+        </div>
+        <LiveWorkbench dataset={activeDataset} />
       </section>
 
       {/* ── Columns and types ── */}

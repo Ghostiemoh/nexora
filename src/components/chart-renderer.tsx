@@ -22,20 +22,12 @@ import {
   Legend,
 } from "recharts";
 import type { ChartConfig, ChartSeries } from "@/lib/chart-recommend";
+import { CHART_PALETTE } from "@/lib/chart-palette";
 
-/* Tuned against the application surface (#101315): gold leads, then a cool
- * counterweight, then warm and cool alternating so neighbouring series never
- * blur into each other. */
-export const CHART_PALETTE = [
-  "#e7b856",
-  "#8dc6bd",
-  "#d99a6c",
-  "#9bb8d3",
-  "#c8a2c8",
-  "#a8c686",
-  "#e0a3a3",
-  "#b9c4bc",
-];
+/* Re-exported so the many components already importing the palette from the
+ * renderer keep working; the values themselves live in lib/chart-palette so an
+ * export can use them without pulling in a client component. */
+export { CHART_PALETTE };
 
 const AXIS_TICK = { fill: "#b7bfba", fontSize: 11 } as const;
 const GRID_STROKE = "rgba(255,255,255,0.06)";

@@ -3,8 +3,13 @@
  * never appear in one surface with a different name than in another.
  *
  * The order encodes the analysis workflow itself: pick a dataset, check its
- * quality, build the dashboard, write the report. Everything else is a tool you
- * reach for along the way. */
+ * quality, summarise it in a pivot, build the dashboard, write the report.
+ * Everything else is a tool you reach for along the way.
+ *
+ * Pivot Tables sits inside that spine rather than off in the tool drawer,
+ * because summarising is what an analyst actually does between cleaning a file
+ * and charting it — putting it anywhere else asks people to invent the step
+ * themselves. */
 
 import {
   LayoutDashboard,
@@ -38,7 +43,7 @@ export interface NavItem {
   /** one line of orientation, shown under the breadcrumb and in the mobile menu */
   description: string;
   /** position in the analysis workflow, rendered as a step number */
-  step?: 1 | 2 | 3;
+  step?: 1 | 2 | 3 | 4;
   /** small dot in the sidebar for AI-backed routes */
   badge?: boolean;
 }
@@ -64,11 +69,20 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Data quality: missing values, duplicates, outliers, types, and the fixes for each.",
   },
   {
+    href: "/pivot",
+    label: "Pivot Tables",
+    icon: Table2,
+    group: "workflow",
+    step: 2,
+    description:
+      "Summarize the clean data: drag fields onto rows, columns, and values, then drill into any number.",
+  },
+  {
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
     group: "workflow",
-    step: 2,
+    step: 3,
     description: "Business intelligence: KPIs, trends, and breakdowns built from the clean data.",
   },
   {
@@ -76,7 +90,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Reports",
     icon: FileBarChart,
     group: "workflow",
-    step: 3,
+    step: 4,
     description: "The written report: summary, findings, recommendations, exported to PDF, Word, or Markdown.",
   },
   {
@@ -93,13 +107,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Database,
     group: "tools",
     description: "Query the loaded data with a local SQL engine.",
-  },
-  {
-    href: "/pivot",
-    label: "Pivot Table",
-    icon: Table2,
-    group: "tools",
-    description: "Cross-tabulate any two fields, aggregate a measure, and export the grid.",
   },
   {
     href: "/ocr-center",
@@ -156,7 +163,7 @@ const byGroup = (group: NavGroup) => NAV_ITEMS.filter((i) => i.group === group);
 
 /** The dataset picker. */
 export const START_NAV = byGroup("start");
-/** Dataset Doctor → Dashboard → Reports, in order. */
+/** Dataset Doctor → Pivot Tables → Dashboard → Reports, in order. */
 export const WORKFLOW_NAV = byGroup("workflow");
 export const TOOLS_NAV = byGroup("tools");
 export const WORKSPACE_NAV = byGroup("workspace");

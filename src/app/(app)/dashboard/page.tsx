@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  Download,
   FilterX,
   LayoutDashboard,
   Lightbulb,
@@ -21,9 +22,12 @@ import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ChartStudio } from "@/components/chart-studio";
 import { PinnedCharts } from "@/components/pinned-charts";
 import { CategoryExplorer } from "@/components/category-explorer";
+import { DashboardExportModal } from "@/components/export/dashboard-export-modal";
 import { buildKpis } from "@/lib/kpi";
-import { buildDashboardLayout, applyFilters } from "@/lib/dashboard";
+import { buildDashboardLayout, applyFilters, describeFilters } from "@/lib/dashboard";
 import { buildDashboard } from "@/lib/auto-dashboard";
+import { buildChartSeries, type ChartType } from "@/lib/chart-recommend";
+import type { ChartCapture } from "@/lib/export-run";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
@@ -40,6 +44,21 @@ export default function DashboardPage() {
 
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [crossFilter, setCrossFilter] = useState<CrossFilter | null>(null);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
+  /* An export has to ship what is on screen, and a reader can switch any panel
+   * to another chart type. These two keep the page's own state in step with
+   * what each panel is actually drawing. */
+  const [panelTypes, setPanelTypes] = useState<Record<string, ChartType>>({});
+  const panelElements = useRef(new Map<string, HTMLDivElement | null>());
+
+  const registerPanel = useCallback((panelId: string, element: HTMLDivElement | null) => {
+    panelElements.current.set(panelId, element);
+  }, []);
+
+  const handleTypeChange = useCallback((panelId: string, type: ChartType) => {
+    setPanelTypes((current) => ({ ...current, [panelId]: type }));
+  }, []);
 
   // The layout is chosen from the full dataset, so filtering changes what the
   // panels show but never which panels exist.
@@ -67,6 +86,24 @@ export default function DashboardPage() {
     [activeDataset, rows]
   );
 
+  /* Read at export time rather than during render: the panel elements only
+   * exist once the charts have mounted, and each panel may have been switched
+   * to a different chart type since the layout was generated. */
+  const collectCharts = useCallback((): ChartCapture[] => {
+    if (!activeDataset || !layout) return [];
+    return layout.panels.map((panel) => {
+      const config = { ...panel.config, type: panelTypes[panel.id] ?? panel.config.type };
+      return {
+        id: panel.id,
+        title: panel.title,
+        subtitle: panel.subtitle,
+        config,
+        series: buildChartSeries(activeDataset, config, rows),
+        element: panelElements.current.get(panel.id) ?? null,
+      };
+    });
+  }, [activeDataset, layout, panelTypes, rows]);
+
   if (!mounted) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-8">
@@ -85,8 +122,17 @@ export default function DashboardPage() {
     );
   }
 
-  const openIssues = activeDataset.diagnostics.filter((d) => d.severity === "warning").length;
+  const openIssues = activeDataset.diagnostics.filter(
+    (d) => d.severity === "warning" && !d.skipped
+  ).length;
   const filtered = rows.length !== activeDataset.rows.length;
+
+  const filterCaption = [
+    describeFilters(selections),
+    crossFilter ? `${crossFilter.column} = ${crossFilter.value}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const handleCrossFilter = (column: string, value: string) => {
     setCrossFilter((prev) =>
@@ -106,7 +152,7 @@ export default function DashboardPage() {
         <div>
           <span className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-[11px] text-on-surface-variant">
             <LayoutDashboard className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            Step 2 · Business intelligence
+            Step 3 · Business intelligence
           </span>
           <h1 className="mb-1.5 text-2xl font-semibold tracking-tight text-white md:text-[28px]">
             Dashboard
@@ -118,10 +164,23 @@ export default function DashboardPage() {
             </span>
           </p>
         </div>
-        <p className="max-w-sm text-[12px] leading-relaxed text-on-surface-variant/80 md:text-right">
-          Every KPI and chart below was chosen from your column types and names. Change any chart
-          type, filter the whole page, or build your own at the bottom.
-        </p>
+        <div className="flex flex-col items-start gap-3 md:items-end">
+          <button
+            type="button"
+            onClick={() => setIsExportOpen(true)}
+            disabled={layout.panels.length === 0}
+            className="pill h-10 cursor-pointer bg-primary px-5 text-[13px] text-on-primary disabled:cursor-not-allowed disabled:opacity-40"
+            title="Export this dashboard to Power BI, Tableau, Excel, PDF, PNG, or CSV"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Export dashboard
+          </button>
+          <p className="max-w-sm text-[12px] leading-relaxed text-on-surface-variant/80 md:text-right">
+            Every KPI and chart below was chosen from your column types and names. Change any chart
+            type, filter the whole page, or export the lot to Power BI or Tableau and keep working
+            there.
+          </p>
+        </div>
       </div>
 
       {/* Quality is upstream of every number on this page */}
@@ -226,6 +285,10 @@ export default function DashboardPage() {
                   index={i}
                   onSelect={handleCrossFilter}
                   selected={crossFilter}
+                  layout={layout}
+                  selections={selections}
+                  onTypeChange={handleTypeChange}
+                  onRegister={registerPanel}
                 />
               ))}
             </section>
@@ -256,6 +319,17 @@ export default function DashboardPage() {
       </section>
 
       <NextStep note="The picture is clear. Turn it into the written analysis you can send." />
+
+      <DashboardExportModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        dataset={activeDataset}
+        layout={layout}
+        collectCharts={collectCharts}
+        rows={rows}
+        selections={selections}
+        filterCaption={filterCaption}
+      />
     </motion.div>
   );
 }

@@ -167,7 +167,7 @@ export default function ReportsPage() {
         <div>
           <span className="no-print mb-2 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-[11px] text-on-surface-variant">
             <BookOpen className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            Step 3 · Reporting
+            Step 4 · Reporting
           </span>
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-white md:text-[28px]">
             {report.title}

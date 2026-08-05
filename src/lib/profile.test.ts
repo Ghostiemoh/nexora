@@ -2,8 +2,16 @@ import { describe, it, expect } from "vitest";
 import { profileDataset } from "./profile";
 import type { Row } from "./types";
 
-function ds(columns: string[], rows: Row[]) {
-  return profileDataset({ id: "t", name: "t.csv", columns, rows, createdAt: 0, changelog: [] });
+function ds(columns: string[], rows: Row[], skips?: string[]) {
+  return profileDataset({
+    id: "t",
+    name: "t.csv",
+    columns,
+    rows,
+    createdAt: 0,
+    changelog: [],
+    skips,
+  });
 }
 
 describe("numeric profiling", () => {
@@ -81,6 +89,74 @@ describe("every finding offers a way out", () => {
     for (const diag of d.diagnostics) {
       expect(Boolean(diag.fix || diag.guidance), `"${diag.title}" is a dead end`).toBe(true);
     }
+  });
+
+  it("tags every finding with the rule it belongs to", () => {
+    const d = ds(["amount"], [1, 2, 3, 4, 5, 900].map((amount) => ({ amount })));
+    for (const diag of d.diagnostics) {
+      expect(typeof diag.rule, `"${diag.title}" has no rule`).toBe("string");
+    }
+  });
+});
+
+describe("skipping a finding", () => {
+  /* A column of gaps: completeness drags the score down until the analyst says
+   * the gaps are meant to be there. */
+  const sparse: Row[] = Array.from({ length: 10 }, (_, i) => ({
+    id: i,
+    note: i < 5 ? "filled" : null,
+  }));
+
+  it("marks the skipped finding rather than hiding it", () => {
+    const d = ds(["id", "note"], sparse, ["diag_missing_note"]);
+    const missing = d.diagnostics.find((x) => x.id === "diag_missing_note");
+    expect(missing).toBeDefined();
+    expect(missing?.skipped).toBe(true);
+  });
+
+  it("stops a skipped gap from lowering completeness", () => {
+    const before = ds(["id", "note"], sparse);
+    const after = ds(["id", "note"], sparse, ["diag_missing_note"]);
+
+    expect(before.health.completeness).toBeLessThan(100);
+    expect(after.health.completeness).toBe(100);
+    expect(after.health.overall).toBeGreaterThan(before.health.overall);
+  });
+
+  it("accepts a whole rule name, not just a finding id", () => {
+    const before = ds(["id", "note"], sparse);
+    const after = ds(["id", "note"], sparse, ["missing"]);
+    expect(after.health.completeness).toBe(100);
+    expect(after.health.overall).toBeGreaterThan(before.health.overall);
+  });
+
+  it("stops a skipped outlier from lowering accuracy", () => {
+    const rows = [1, 2, 3, 4, 5, 6, 7, 8, 5000].map((x) => ({ x }));
+    const before = ds(["x"], rows);
+    const after = ds(["x"], rows, ["diag_outliers_x"]);
+
+    expect(before.health.accuracy).toBeLessThan(100);
+    expect(after.health.accuracy).toBe(100);
+  });
+
+  it("stops a skipped duplicate finding from lowering consistency", () => {
+    const rows = [{ a: 1 }, { a: 1 }, { a: 2 }];
+    const before = ds(["a"], rows);
+    const after = ds(["a"], rows, ["duplicates"]);
+
+    expect(after.health.consistency).toBeGreaterThan(before.health.consistency);
+  });
+
+  it("leaves an unrelated finding counting against the score", () => {
+    const rows = [{ a: 1, b: "  x  " }, { a: 1, b: "y" }, { a: 2, b: "z" }];
+    const skipped = ds(["a", "b"], rows, ["duplicates"]);
+    // Whitespace was not skipped, so consistency is still short of perfect.
+    expect(skipped.health.consistency).toBeLessThan(100);
+  });
+
+  it("records the skips on the dataset so a re-profile keeps them", () => {
+    const d = ds(["id", "note"], sparse, ["missing"]);
+    expect(d.skips).toEqual(["missing"]);
   });
 });
 

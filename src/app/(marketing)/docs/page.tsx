@@ -115,16 +115,25 @@ export default function DocsPage() {
           causes, and recommendations. Every section can be edited or excluded before export.
         </p>
         <p>
-          Exports: PDF via your browser&apos;s print dialog, Word (.docx), Markdown, cleaned CSV, and
-          Excel. Each export is logged in History and can be downloaded again later.
+          Report exports: PDF via your browser&apos;s print dialog, Word (.docx), Markdown, cleaned
+          CSV, and Excel. Each export is logged in History and can be downloaded again later.
+        </p>
+        <p>
+          Dashboard exports are separate and cover both directions. A picture: PNG, SVG, or a PDF
+          with a page per chart. The numbers: CSV or an Excel workbook with a sheet per chart. Or
+          something you keep working in: a Power BI .pbip project carrying the model, DAX measures,
+          page layout, visuals, and slicers, and a Tableau .twbx with a worksheet per chart, a
+          dashboard, and calculated fields. Both bundle the underlying data and a manual fallback
+          (Power Query M, DAX, a .tds datasource) in case a version declines the project file. A
+          binary .pbix cannot be written in a browser, so Nexora does not claim to.
         </p>
       </Section>
 
-      <Section title="SQL Lab, Pivot, and the other tools">
+      <Section title="SQL Lab, Pivot Tables, and the other tools">
         <Facts
           rows={[
             { term: "SQL Lab", detail: "A real in-memory engine over the loaded dataset: SELECT, WHERE, GROUP BY, ORDER BY, LIMIT, and aggregates. Any result can be loaded back as a new dataset." },
-            { term: "Pivot Table", detail: "Two fields crossed, one measure aggregated by sum, average, min, max, or count, with totals both ways computed from source rows. Exports to CSV." },
+            { term: "Pivot Tables", detail: "Step 2 of the workflow. Drag any number of fields onto Rows, Columns, Values, and Filters; aggregate by sum, average, count, min, or max; nest levels; click any number to drill into the records behind it. Totals are recomputed from source rows, so an average of averages never appears. Exports to CSV and Excel." },
             { term: "AI Analyst", detail: "Browse and filter the grid, and ask questions about the data in plain language." },
             { term: "OCR Center", detail: "Tesseract and pdf.js run in the tab to lift tables out of images and PDFs." },
             { term: "Workflows", detail: "Records the cleaning steps and pinned charts of one analysis and replays them on a new file." },

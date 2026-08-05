@@ -1,4 +1,11 @@
-import type { Dataset, Row, ColumnProfile, Diagnostic, DatasetHealth, ColumnType } from "./types";
+import type {
+  Dataset,
+  Row,
+  ColumnProfile,
+  Diagnostic,
+  DatasetHealth,
+  ColumnType,
+} from "./types";
 import {
   parseNumeric,
   hasLeadingZeroId,
@@ -105,9 +112,12 @@ export function profileDataset(raw: {
   createdAt: number;
   changelog: string[];
   truncated?: boolean;
+  /** findings (by id) and rules (by name) the analyst marked intentional */
+  skips?: readonly string[];
 }): Dataset {
-  const { id, name, columns, rows, createdAt, changelog, truncated = false } = raw;
+  const { id, name, columns, rows, createdAt, changelog, truncated = false, skips = [] } = raw;
   const rowCount = rows.length;
+  const skipSet = new Set(skips);
 
   // 1. Calculate duplicates
   let duplicateRows = 0;
@@ -121,8 +131,9 @@ export function profileDataset(raw: {
     }
   });
 
-  // Accuracy contributions from numeric columns (share of in-fence values).
-  const accuracyScores: number[] = [];
+  // Accuracy contributions from numeric columns (share of in-fence values),
+  // kept per column so a skipped outlier finding can be excluded from the score.
+  const accuracyByColumn = new Map<string, number>();
 
   // Column-level findings that feed diagnostics after the loop.
   const indexCols: string[] = [];
@@ -269,7 +280,7 @@ export function profileDataset(raw: {
         profile.outlierCount = isIndexCol ? 0 : outlierCount;
 
         if (!isIndexCol) {
-          accuracyScores.push((1 - outlierCount / numbers.length) * 100);
+          accuracyByColumn.set(colName, (1 - outlierCount / numbers.length) * 100);
         }
       }
     } else if (inferredType === "date") {
@@ -336,6 +347,8 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: `diag_index_${col}`,
       severity: "warning",
+      rule: "index",
+      column: col,
       title: `Index Column '${col}'`,
       description: `'${col}' just counts the rows (${col === "__EMPTY" ? "an unnamed spreadsheet index" : "a serial number"}). It adds noise to stats and charts.`,
       fix: { op: { kind: "dropColumn", column: col }, label: "Drop Column" },
@@ -346,6 +359,7 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: "diag_encoding",
       severity: "warning",
+      rule: "encoding",
       title: "Broken Text Encoding",
       description: `Columns (${mojibakeCols.slice(0, 3).join(", ")}) contain garbled characters like "â€“". This usually means a CSV was saved with the wrong encoding.`,
       fix: { op: { kind: "fixEncoding" }, label: "Repair Encoding" },
@@ -357,6 +371,8 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: `diag_exceldate_${col}`,
       severity: "warning",
+      rule: "excelSerial",
+      column: col,
       title: `Excel Serial Dates in '${col}'`,
       description: `Values like 44391 are Excel day numbers${p?.dateMin ? ` (${p.dateMin} → ${p.dateMax})` : ""}. Convert them to real dates for time-series analysis.`,
       fix: { op: { kind: "convertExcelDates", column: col }, label: "Convert to Dates" },
@@ -367,6 +383,7 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: "diag_duplicates",
       severity: "warning",
+      rule: "duplicates",
       title: "Duplicate Rows Found",
       description: `There are ${duplicateRows} identical rows in the dataset that might inflate statistics.`,
       fix: { op: { kind: "dropDuplicates" }, label: "Remove Duplicates" },
@@ -377,6 +394,8 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: `diag_dupid_${col}`,
       severity: "warning",
+      rule: "duplicateIds",
+      column: col,
       title: `Repeated IDs in '${col}'`,
       description: `'${col}' looks like a unique identifier but has repeated values, which often means two rows are near-duplicates that differ in one cell.`,
       guidance: `No safe automatic fix: dropping rows on a key alone would discard real edits. Apply the spacing, casing, and encoding fixes above, then re-check duplicates. To inspect them, sort by '${col}' in the data table or run a GROUP BY in SQL Lab.`,
@@ -388,6 +407,7 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: "diag_empty_rows",
       severity: "warning",
+      rule: "emptyRows",
       title: "Empty Rows Detected",
       description: "Some rows are completely blank and should be excluded.",
       fix: { op: { kind: "dropEmptyRows" }, label: "Clear Blank Rows" },
@@ -399,6 +419,7 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: "diag_whitespace",
       severity: "warning",
+      rule: "whitespace",
       title: "Whitespace Inconsistencies",
       description: `Columns (${whitespaceCols.slice(0, 3).join(", ")}) contain stray or doubled-up spaces ("George    Clinton").`,
       fix: { op: { kind: "trimWhitespace" }, label: "Normalize Spacing" },
@@ -409,6 +430,8 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: `diag_case_${col}`,
       severity: "warning",
+      rule: "casing",
+      column: col,
       title: `Inconsistent Casing in '${col}'`,
       description: `Most values are Mixed Case but some are all-lower or ALL-CAPS ("john adams", "JAMES MONROE"). Group-bys will treat them as different values.`,
       fix: { op: { kind: "standardizeCase", column: col }, label: "Standardize Casing" },
@@ -423,6 +446,8 @@ export function profileDataset(raw: {
     diagnostics.push({
       id: `diag_merge_${column}`,
       severity: "warning",
+      rule: "variant",
+      column,
       title: `Similar Values in '${column}'`,
       description: `Likely typos or variants of the same category: ${pairs}. Merging them keeps group-bys honest.`,
       fix: { op: { kind: "mergeValues", column, mapping }, label: "Merge Variants" },
@@ -436,6 +461,8 @@ export function profileDataset(raw: {
       diagnostics.push({
         id: `diag_missing_${p.name}`,
         severity: "warning",
+        rule: "missing",
+        column: p.name,
         title: `Nulls in Column '${p.name}'`,
         description: `This column is missing ${p.missingCount} values (${(100 - p.completeness).toFixed(1)}% incomplete).`,
         fix: {
@@ -456,6 +483,8 @@ export function profileDataset(raw: {
       diagnostics.push({
         id: `diag_outliers_${p.name}`,
         severity: "warning",
+        rule: "outlier",
+        column: p.name,
         title: `Outliers in '${p.name}'`,
         description: `${p.outlierCount} value(s) fall outside the expected range [${lo} … ${hi}] (1.5×IQR). Capping pulls them onto the fence and keeps every row; check them first, since a real extreme is often the finding, not the error.`,
         fix: {
@@ -467,22 +496,72 @@ export function profileDataset(raw: {
     }
   });
 
-  // 4. Calculate overall health score
-  const completenessAvg = profiles.reduce((acc, p) => acc + p.completeness, 0) / (columns.length || 1);
-  const validityAvg = profiles.reduce((acc, p) => acc + p.validity, 0) / (columns.length || 1);
-  const accuracy = accuracyScores.length > 0
-    ? accuracyScores.reduce((a, b) => a + b, 0) / accuracyScores.length
-    : 100;
+  // Cells that disagree with their column's inferred type. There is no safe
+  // mechanical remedy — only the analyst knows whether "N/A" in an amount
+  // column means zero, missing, or a genuine note — so this one carries
+  // guidance rather than a fix, and Dataset Doctor points at the exact cells.
+  profiles.forEach((p) => {
+    if (p.validity >= 100) return;
+    const present = rowCount - p.missingCount;
+    const offenders = Math.round(((100 - p.validity) / 100) * present);
+    if (offenders < 1) return;
+    diagnostics.push({
+      id: `diag_type_${p.name}`,
+      severity: "warning",
+      rule: "typeMismatch",
+      column: p.name,
+      title: `Type Violations in '${p.name}'`,
+      description: `${offenders} value(s) in '${p.name}' are not valid ${p.type} entries (${p.validity.toFixed(1)}% conform). Group-bys and aggregations will silently skip them.`,
+      guidance: `Open the cell-level issues below and filter to '${p.name}' to see each offending cell by reference. Fix them in place, or use Find & Replace if they share one bad token (a stray "N/A", a thousands separator, a currency symbol).`,
+    });
+  });
 
-  // Consistency is reduced by structural and formatting problems.
+  // 4. Calculate overall health score
+  //
+  // A finding the analyst marked intentional stops counting against the score.
+  // That is the whole point of skipping: an ID column that is meant to repeat,
+  // or a revenue spike that is real, should not sit there dragging a number
+  // down forever. Skips match a finding by id or a whole rule by name.
+  const isSkipped = (diagnosticId: string, rule: string): boolean =>
+    skipSet.has(diagnosticId) || skipSet.has(rule);
+
+  diagnostics.forEach((d) => {
+    if (isSkipped(d.id, d.rule)) d.skipped = true;
+  });
+
+  const completenessAvg =
+    profiles.reduce(
+      (acc, p) => acc + (isSkipped(`diag_missing_${p.name}`, "missing") ? 100 : p.completeness),
+      0
+    ) / (columns.length || 1);
+
+  const validityAvg =
+    profiles.reduce(
+      (acc, p) => acc + (isSkipped(`diag_type_${p.name}`, "typeMismatch") ? 100 : p.validity),
+      0
+    ) / (columns.length || 1);
+
+  const accuracyScores = Array.from(accuracyByColumn, ([column, score]) =>
+    isSkipped(`diag_outliers_${column}`, "outlier") ? 100 : score
+  );
+  const accuracy =
+    accuracyScores.length > 0
+      ? accuracyScores.reduce((a, b) => a + b, 0) / accuracyScores.length
+      : 100;
+
+  // Consistency is reduced by structural and formatting problems. A penalty
+  // only lands while at least one column raising it is still being counted.
+  const anyUnskipped = (cols: string[], prefix: string, rule: string) =>
+    cols.some((c) => !isSkipped(`${prefix}${c}`, rule));
+
   let consistency = 100;
-  if (duplicateRows > 0) consistency -= 10;
-  if (whitespaceCols.length > 0) consistency -= 5;
-  if (mojibakeCols.length > 0) consistency -= 15;
-  if (casingCols.length > 0) consistency -= 10;
-  if (mergeCols.length > 0) consistency -= 10;
-  if (excelDateCols.length > 0) consistency -= 5;
-  if (dupIdCols.length > 0) consistency -= 5;
+  if (duplicateRows > 0 && !isSkipped("diag_duplicates", "duplicates")) consistency -= 10;
+  if (whitespaceCols.length > 0 && !isSkipped("diag_whitespace", "whitespace")) consistency -= 5;
+  if (mojibakeCols.length > 0 && !isSkipped("diag_encoding", "encoding")) consistency -= 15;
+  if (anyUnskipped(casingCols, "diag_case_", "casing")) consistency -= 10;
+  if (anyUnskipped(mergeCols.map((m) => m.column), "diag_merge_", "variant")) consistency -= 10;
+  if (anyUnskipped(excelDateCols, "diag_exceldate_", "excelSerial")) consistency -= 5;
+  if (anyUnskipped(dupIdCols, "diag_dupid_", "duplicateIds")) consistency -= 5;
   consistency = Math.max(10, consistency);
 
   const overall = Math.round(
@@ -513,5 +592,6 @@ export function profileDataset(raw: {
     updatedAt: Date.now(),
     changelog,
     truncated,
+    skips: skips.length > 0 ? [...skips] : undefined,
   };
 }

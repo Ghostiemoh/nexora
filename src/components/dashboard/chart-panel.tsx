@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AreaChart as AreaIcon,
@@ -25,7 +25,8 @@ import {
   type ChartType,
 } from "@/lib/chart-recommend";
 import { ChartRenderer } from "@/components/chart-renderer";
-import type { DashboardPanel } from "@/lib/dashboard";
+import { ChartExportMenu } from "@/components/export/chart-export-menu";
+import type { DashboardLayout, DashboardPanel } from "@/lib/dashboard";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
@@ -50,6 +51,15 @@ export interface ChartPanelProps {
   onSelect?: (column: string, value: string) => void;
   /** the value the dashboard is cross-filtered on, so this panel can dim */
   selected?: { column: string; value: string } | null;
+  /** the full layout, so an export can describe the dashboard this belongs to */
+  layout?: DashboardLayout;
+  /** the filter bar's current state, carried into exports that hold slicers */
+  selections?: Record<string, string[]>;
+  /** raised when the reader switches this panel to a different chart type, so
+   *  a dashboard-wide export ships what is actually on screen */
+  onTypeChange?: (panelId: string, type: ChartType) => void;
+  /** lets the parent read this panel's live DOM for an image export */
+  onRegister?: (panelId: string, element: HTMLDivElement | null) => void;
 }
 
 /** One dashboard panel. Every panel owns a full chart-type switcher, not just
@@ -61,10 +71,20 @@ export function ChartPanel({
   index,
   onSelect,
   selected,
+  layout,
+  selections,
+  onTypeChange,
+  onRegister,
 }: ChartPanelProps) {
   const [type, setType] = useState<ChartType>(panel.config.type);
   const pinChart = useNexora((s) => s.pinChart);
   const [pinned, setPinned] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  const handleTypeChange = (next: ChartType) => {
+    setType(next);
+    onTypeChange?.(panel.id, next);
+  };
 
   const config: ChartConfig = useMemo(() => ({ ...panel.config, type }), [panel.config, type]);
 
@@ -99,19 +119,35 @@ export function ChartPanel({
             {panel.subtitle}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handlePin}
-          title="Keep this chart with the dataset"
-          aria-label={`Pin ${panel.title}`}
-          className={`press flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-colors ${
-            pinned
-              ? "border-primary/30 bg-primary/12 text-primary"
-              : "border-white/10 text-on-surface-variant hover:bg-white/[0.06] hover:text-on-surface"
-          }`}
-        >
-          <Pin className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {layout && (
+            <ChartExportMenu
+              dataset={dataset}
+              layout={layout}
+              chartId={panel.id}
+              title={panel.title}
+              subtitle={panel.subtitle}
+              config={config}
+              series={series}
+              containerRef={chartRef}
+              rows={rows}
+              selections={selections}
+            />
+          )}
+          <button
+            type="button"
+            onClick={handlePin}
+            title="Keep this chart with the dataset"
+            aria-label={`Pin ${panel.title}`}
+            className={`press flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-colors ${
+              pinned
+                ? "border-primary/30 bg-primary/12 text-primary"
+                : "border-white/10 text-on-surface-variant hover:bg-white/[0.06] hover:text-on-surface"
+            }`}
+          >
+            <Pin className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* Type switcher, on every panel */}
@@ -124,7 +160,7 @@ export function ChartPanel({
               key={option}
               type="button"
               disabled={!ok}
-              onClick={() => setType(option)}
+              onClick={() => handleTypeChange(option)}
               title={ok ? `Show as ${CHART_LABELS[option]}` : reason}
               aria-pressed={active}
               aria-label={CHART_LABELS[option]}
@@ -146,21 +182,29 @@ export function ChartPanel({
         })}
       </div>
 
-      {series ? (
-        <ChartRenderer
-          config={config}
-          series={series}
-          height={panel.wide ? 300 : 260}
-          selected={selectedValue}
-          onSelect={
-            onSelect && filterColumn ? (value) => onSelect(filterColumn, value) : undefined
-          }
-        />
-      ) : (
-        <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-white/10 text-center text-xs text-on-surface-variant">
-          No values to plot in the current filter.
-        </div>
-      )}
+      {/* The wrapper is what an image export reads the live SVG out of. */}
+      <div
+        ref={(element) => {
+          chartRef.current = element;
+          onRegister?.(panel.id, element);
+        }}
+      >
+        {series ? (
+          <ChartRenderer
+            config={config}
+            series={series}
+            height={panel.wide ? 300 : 260}
+            selected={selectedValue}
+            onSelect={
+              onSelect && filterColumn ? (value) => onSelect(filterColumn, value) : undefined
+            }
+          />
+        ) : (
+          <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-white/10 text-center text-xs text-on-surface-variant">
+            No values to plot in the current filter.
+          </div>
+        )}
+      </div>
 
       {filterColumn && onSelect && (
         <p className="mt-2 font-mono text-[10px] text-on-surface-variant/60">

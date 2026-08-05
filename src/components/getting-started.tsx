@@ -14,9 +14,9 @@ interface Step {
   action: { label: string; href: string };
 }
 
-/** The workflow tracker: dataset in, quality fixed, dashboard read, report out.
- *  Every step is checked off from real state, never from "you clicked the
- *  button", so the list cannot lie about progress. */
+/** The workflow tracker: dataset in, quality fixed, numbers summarized,
+ *  dashboard read, report out. Every step is checked off from real state, never
+ *  from "you clicked the button", so the list cannot lie about progress. */
 export function GettingStarted({ dataset }: { dataset: Dataset }) {
   const pinned = useNexora((s) => s.pinnedCharts[dataset.id]) ?? [];
   const exportHistory = useNexora((s) => s.exportHistory);
@@ -25,10 +25,14 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
 
   if (dismissed) return null;
 
-  const openIssues = dataset.diagnostics.filter((d) => d.severity === "warning").length;
+  // Findings the analyst marked intentional are settled, not outstanding, so
+  // they must not hold this checklist open forever.
+  const openIssues = dataset.diagnostics.filter(
+    (d) => d.severity === "warning" && !d.skipped
+  ).length;
   // How many of those the bulk button can actually take, so the promise here
   // matches what the button does when it is pressed.
-  const autoIssues = dataset.diagnostics.filter((d) => d.fix && !d.fix.manual).length;
+  const autoIssues = dataset.diagnostics.filter((d) => d.fix && !d.fix.manual && !d.skipped).length;
   const exported = exportHistory.some((e) => e.datasetId === dataset.id);
 
   const steps: Step[] = [
@@ -50,6 +54,16 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
             : `${openIssues} issue${openIssues === 1 ? "" : "s"} left, each needing a call only you can make.`,
       done: openIssues === 0,
       action: { label: openIssues === 0 ? "Review quality" : "Fix them", href: "/dataset-doctor" },
+    },
+    {
+      id: "pivot",
+      title: "Summarize it in a pivot",
+      detail:
+        "Drag fields onto rows, columns, and values to see the totals before you chart them.",
+      // Nothing in a pivot is saved, so this step is a prompt rather than a
+      // box that ticks itself. Claiming otherwise would be a lie about state.
+      done: false,
+      action: { label: "Build a pivot", href: "/pivot" },
     },
     {
       id: "chart",
@@ -81,7 +95,9 @@ export function GettingStarted({ dataset }: { dataset: Dataset }) {
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-white">
             <Compass className="h-4 w-4 text-primary" aria-hidden="true" />
-            {complete ? "You have done the full run" : "New here? Four steps to a finished report"}
+            {complete
+              ? "You have done the full run"
+              : `New here? ${steps.length} steps to a finished report`}
           </h2>
           <p className="mt-0.5 text-[12px] text-on-surface-variant">
             {complete

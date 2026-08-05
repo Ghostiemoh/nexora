@@ -53,9 +53,17 @@ interface NexoraState {
   removeDataset: (id: string) => void;
   applyFix: (datasetId: string, op: CleanOp) => string;
   undoFix: (datasetId: string) => string;
+  redoFix: (datasetId: string) => string;
   applyRecipe: (datasetId: string, ops: CleanOp[]) => string;
   /** per-dataset undo depth available (in-memory only) */
   undoDepth: (datasetId: string) => number;
+  /** per-dataset redo depth available (in-memory only) */
+  redoDepth: (datasetId: string) => number;
+  /** mark a finding (by id) or a whole rule (by name) as intentional, so it
+   *  stops counting against the health score and stops being auto-fixed */
+  skipDiagnostic: (datasetId: string, key: string, label?: string) => void;
+  /** put a skipped finding back under review */
+  unskipDiagnostic: (datasetId: string, key: string) => void;
   joinDatasets: (
     name: string,
     leftId: string,
@@ -108,12 +116,31 @@ interface UndoSnapshot {
   recipe: CleanOp[];
 }
 const undoStacks = new Map<string, UndoSnapshot[]>();
+/* Redo is the mirror image: undo pushes here, and any new edit clears it,
+ * because a branch you have stepped off is no longer a future you can reach. */
+const redoStacks = new Map<string, UndoSnapshot[]>();
 
-function pushUndo(datasetId: string, snap: UndoSnapshot) {
-  const stack = undoStacks.get(datasetId) ?? [];
+function pushOnto(stacks: Map<string, UndoSnapshot[]>, datasetId: string, snap: UndoSnapshot) {
+  const stack = stacks.get(datasetId) ?? [];
   stack.push(snap);
   if (stack.length > UNDO_CAP) stack.shift();
-  undoStacks.set(datasetId, stack);
+  stacks.set(datasetId, stack);
+}
+
+/** Snapshot before an edit. Taking a new step always abandons the redo branch. */
+function pushUndo(datasetId: string, snap: UndoSnapshot) {
+  pushOnto(undoStacks, datasetId, snap);
+  redoStacks.delete(datasetId);
+}
+
+/** The undo/redo payload of a dataset as it stands right now. */
+function snapshotOf(dataset: Dataset): UndoSnapshot {
+  return {
+    rows: dataset.rows,
+    columns: dataset.columns,
+    changelog: dataset.changelog,
+    recipe: dataset.recipe ?? [],
+  };
 }
 
 /** localStorage with a quota guard. Large datasets stay in memory only. */
@@ -419,12 +446,7 @@ export const useNexora = create<NexoraState>()(
         }
 
         // Snapshot for undo, then record the op into the dataset's recipe.
-        pushUndo(datasetId, {
-          rows: dataset.rows,
-          columns: dataset.columns,
-          changelog: dataset.changelog,
-          recipe: dataset.recipe ?? [],
-        });
+        pushUndo(datasetId, snapshotOf(dataset));
 
         const updatedDataset = profileDataset({
           id: dataset.id,
@@ -434,6 +456,7 @@ export const useNexora = create<NexoraState>()(
           createdAt: dataset.createdAt,
           changelog: [...dataset.changelog, logMsg],
           truncated: dataset.truncated,
+          skips: dataset.skips,
         });
         updatedDataset.recipe = [...(dataset.recipe ?? []), op];
 
@@ -462,6 +485,9 @@ export const useNexora = create<NexoraState>()(
         const stack = undoStacks.get(datasetId);
         if (!dataset || !stack || stack.length === 0) return "Nothing to undo";
 
+        // The state being left behind becomes the redo target.
+        pushOnto(redoStacks, datasetId, snapshotOf(dataset));
+
         const snap = stack.pop()!;
         const restored = profileDataset({
           id: dataset.id,
@@ -471,6 +497,7 @@ export const useNexora = create<NexoraState>()(
           createdAt: dataset.createdAt,
           changelog: [...snap.changelog, "Undid the last cleaning operation."],
           truncated: dataset.truncated,
+          skips: dataset.skips,
         });
         restored.recipe = snap.recipe;
 
@@ -481,18 +508,95 @@ export const useNexora = create<NexoraState>()(
         return "Success";
       },
 
+      redoFix: (datasetId) => {
+        const dataset = get().datasets.find((d) => d.id === datasetId);
+        const stack = redoStacks.get(datasetId);
+        if (!dataset || !stack || stack.length === 0) return "Nothing to redo";
+
+        // Stepping forward again makes the current state undoable, without
+        // clearing the rest of the redo branch.
+        pushOnto(undoStacks, datasetId, snapshotOf(dataset));
+
+        const snap = stack.pop()!;
+        const restored = profileDataset({
+          id: dataset.id,
+          name: dataset.name,
+          columns: snap.columns,
+          rows: snap.rows,
+          createdAt: dataset.createdAt,
+          changelog: [...snap.changelog, "Reapplied the undone operation."],
+          truncated: dataset.truncated,
+          skips: dataset.skips,
+        });
+        restored.recipe = snap.recipe;
+
+        set((state) => ({
+          datasets: state.datasets.map((d) => (d.id === datasetId ? restored : d)),
+        }));
+        get().logAudit("redo", "Reapplied the undone cleaning operation.", datasetId);
+        return "Success";
+      },
+
       undoDepth: (datasetId) => undoStacks.get(datasetId)?.length ?? 0,
+      redoDepth: (datasetId) => redoStacks.get(datasetId)?.length ?? 0,
+
+      skipDiagnostic: (datasetId, key, label) => {
+        const dataset = get().datasets.find((d) => d.id === datasetId);
+        if (!dataset) return;
+        const current = dataset.skips ?? [];
+        if (current.includes(key)) return;
+
+        const skips = [...current, key];
+        const rescored = profileDataset({
+          id: dataset.id,
+          name: dataset.name,
+          columns: dataset.columns,
+          rows: dataset.rows,
+          createdAt: dataset.createdAt,
+          changelog: [...dataset.changelog, `Marked '${label ?? key}' as intentional.`],
+          truncated: dataset.truncated,
+          skips,
+        });
+        rescored.recipe = dataset.recipe;
+
+        set((state) => ({
+          datasets: state.datasets.map((d) => (d.id === datasetId ? rescored : d)),
+        }));
+        get().logAudit(
+          "skip",
+          `Marked '${label ?? key}' as intentional. Health is now ${rescored.health.overall}%.`,
+          datasetId
+        );
+      },
+
+      unskipDiagnostic: (datasetId, key) => {
+        const dataset = get().datasets.find((d) => d.id === datasetId);
+        if (!dataset?.skips?.includes(key)) return;
+
+        const skips = dataset.skips.filter((s) => s !== key);
+        const rescored = profileDataset({
+          id: dataset.id,
+          name: dataset.name,
+          columns: dataset.columns,
+          rows: dataset.rows,
+          createdAt: dataset.createdAt,
+          changelog: [...dataset.changelog, `Put '${key}' back under review.`],
+          truncated: dataset.truncated,
+          skips,
+        });
+        rescored.recipe = dataset.recipe;
+
+        set((state) => ({
+          datasets: state.datasets.map((d) => (d.id === datasetId ? rescored : d)),
+        }));
+        get().logAudit("skip", `Put '${key}' back under review.`, datasetId);
+      },
 
       applyRecipe: (datasetId, ops) => {
         const dataset = get().datasets.find((d) => d.id === datasetId);
         if (!dataset) return "Dataset not found";
 
-        pushUndo(datasetId, {
-          rows: dataset.rows,
-          columns: dataset.columns,
-          changelog: dataset.changelog,
-          recipe: dataset.recipe ?? [],
-        });
+        pushUndo(datasetId, snapshotOf(dataset));
 
         const result = replayRecipe(dataset.rows, dataset.columns, ops);
         const logMsg = `Replayed a cleaning recipe: ${result.applied} op(s) applied${
@@ -507,6 +611,7 @@ export const useNexora = create<NexoraState>()(
           createdAt: dataset.createdAt,
           changelog: [...dataset.changelog, logMsg],
           truncated: dataset.truncated,
+          skips: dataset.skips,
         });
         updatedDataset.recipe = [...(dataset.recipe ?? []), ...ops];
 
@@ -650,12 +755,7 @@ export const useNexora = create<NexoraState>()(
         if (!dataset) return "Dataset not found";
         if (!workflow) return "Workflow not found";
 
-        pushUndo(datasetId, {
-          rows: dataset.rows,
-          columns: dataset.columns,
-          changelog: dataset.changelog,
-          recipe: dataset.recipe ?? [],
-        });
+        pushUndo(datasetId, snapshotOf(dataset));
 
         const run = applyWorkflow(dataset.rows, dataset.columns, workflow);
         const cleanOps = workflow.steps
@@ -674,6 +774,7 @@ export const useNexora = create<NexoraState>()(
           createdAt: dataset.createdAt,
           changelog: [...dataset.changelog, logMsg],
           truncated: dataset.truncated,
+          skips: dataset.skips,
         });
         updated.recipe = [...(dataset.recipe ?? []), ...cleanOps];
 

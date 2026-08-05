@@ -76,7 +76,7 @@ const FREE_FEATURES = [
   "Cleaning recipes, undo, audit log",
   "PostgreSQL + MySQL connections",
   "AI chat & English→SQL (your own Gemini key)",
-  "PDF, Word, Markdown, CSV, Excel export",
+  "Power BI, Tableau, Excel, PDF, PNG, SVG, CSV export",
   "Team workspace bundles",
   "OCR + PDF table extraction",
 ];
