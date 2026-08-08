@@ -18,8 +18,8 @@ export default function DocsPage() {
     >
       <Section title="Quick start">
         <p>
-          Open the workspace, choose a dataset, and work through the three steps. Nothing installs
-          and no account is created.
+          Open the workspace, choose a dataset, and work through the three steps. Nothing installs,
+          and no account is needed unless you want your recipes on more than one device.
         </p>
         <Bullets
           items={[

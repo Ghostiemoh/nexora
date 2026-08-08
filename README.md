@@ -76,6 +76,27 @@ These need a free Google Gemini key, which you paste into Settings. With one, yo
 
 Bundles the whole workspace, datasets and recipes and roster together, into a single file. A teammate imports it and has your exact setup. No accounts and no server involved.
 
+### Cross-device sync
+
+Opt-in, off until you sign in from Settings, and encrypted so that the server cannot read what it stores. Sign in with Google or with an email and password; either way you end up at the same encrypted vault.
+
+What travels is the reusable half of a workspace: cleaning recipes, keyed by schema rather than by local dataset id, and the roster. So next month's export can land on a different machine and the monthly close still recognizes it, because the recipe arrived first. Datasets stay on the device that imported them.
+
+The mechanics, because the claim is only worth as much as the design behind it:
+
+- One random data key per account, wrapped once per credential. A password, a passphrase, and each recovery code each wrap the same key, which is why several credentials open one vault and why a password change re-wraps one small key instead of re-encrypting anything.
+- Signing in with email and password derives that password twice under different context strings. One result is what the auth provider stores and checks; the other never leaves the device. Google sign-in has no user-held secret, so it supplies identity only and a passphrase supplies the key.
+- Record ids are HMACs computed under a key derived from the data key, so they are stable across your devices and opaque to the server.
+- Sealing happens in `sync-service.ts` before anything reaches the transport, so the only module that talks to a network handles ciphertext exclusively.
+- The engine compares server-assigned revisions rather than two machines' clocks. Timestamps break a genuine conflict and nothing else.
+- Trusting a device wraps the data key under a non-extractable key in IndexedDB, so the passphrase is asked once per device rather than once per visit.
+
+Excluded on purpose, and enforced by a test that fails the build if the list is ever quietly extended: datasets, database connection strings, the Gemini API key, export history, chat transcripts, and the audit log.
+
+Losing both your passphrase and your recovery codes means the synced records cannot be recovered. That is the price of the server not being able to read them.
+
+To run sync on your own deployment, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` and apply `supabase/migrations`. Without them the feature reports itself unavailable rather than presenting a sign-in that cannot work.
+
 ### Alerts, audit log, and history
 
 A notification bell covers imports, low health scores, and failed connections. The audit log only ever appends. The history page keeps every export so you can download any of them again later.

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Database, HardDrive, Monitor, ShieldCheck, Trash2, Sparkles } from "lucide-react";
 import { useMounted } from "@/lib/use-mounted";
 import { useNexora } from "@/lib/store";
+import { AccountPanel } from "@/components/account-panel";
 
 export default function SettingsPage() {
   const mounted = useMounted();
@@ -31,8 +32,10 @@ export default function SettingsPage() {
       <header className="max-w-2xl space-y-2">
         <p className="text-label text-primary">Workspace controls</p>
         <h1 className="text-3xl font-semibold tracking-tight text-on-surface">Local, clear, and in your control.</h1>
-        <p className="text-sm leading-6 text-on-surface-variant">Nexora currently runs in this browser. These controls only describe behavior that is available today.</p>
+        <p className="text-sm leading-6 text-on-surface-variant">Nexora analyses your data in this browser. Sync is opt-in, encrypted before it leaves, and covers your recipes rather than your datasets. These controls only describe behavior that is available today.</p>
       </header>
+
+      <AccountPanel />
 
       <section className="nexora-card grid gap-px overflow-hidden sm:grid-cols-3" aria-label="Local workspace status">
         {[

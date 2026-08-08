@@ -167,3 +167,55 @@ export function findRecurringSource(target: Dataset, all: Dataset[]): RecurringS
 
   return best;
 }
+
+/** A stable identity for a schema, independent of any one device's dataset ids,
+ *  so a recipe recorded on a laptop can be matched against a file opened on a
+ *  phone. Column order cannot affect it because the fingerprint is sorted. */
+export function fingerprintKey(print: DatasetFingerprint): string {
+  return print.columns.map((c) => `${c}=${print.types[c]}`).join("|");
+}
+
+/** The minimum a stored recipe needs to be matchable without the dataset it came
+ *  from. Kept structural rather than importing the sync layer's own type, so
+ *  this module stays unaware of how recipes are transported. */
+export interface MatchableRecipe {
+  fingerprint: DatasetFingerprint;
+  ops: CleanOp[];
+  updatedAt: number;
+}
+
+export interface RecurringRecipeMatch<T> {
+  entry: T;
+  match: FingerprintMatch;
+}
+
+/** The cross-device half of the monthly close: match an imported file against
+ *  recipes carried over from other devices, where the dataset that recorded them
+ *  is not present at all. Same scoring as `findRecurringSource`, including the
+ *  allowance for columns the recipe deletes on its own. */
+export function findRecurringRecipe<T extends MatchableRecipe>(
+  target: Dataset,
+  book: readonly T[]
+): RecurringRecipeMatch<T> | null {
+  const targetPrint = fingerprintDataset(target);
+  let best: RecurringRecipeMatch<T> | null = null;
+
+  for (const entry of book) {
+    if (entry.ops.length === 0) continue;
+
+    const match = compareFingerprints(
+      entry.fingerprint,
+      omitColumns(targetPrint, droppedByRecipe(entry.ops))
+    );
+    if (!isRecurringMatch(match)) continue;
+
+    const better =
+      best === null ||
+      match.score > best.match.score ||
+      (match.score === best.match.score && entry.updatedAt > best.entry.updatedAt);
+
+    if (better) best = { entry, match };
+  }
+
+  return best;
+}

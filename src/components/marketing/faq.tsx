@@ -8,7 +8,7 @@ import { Reveal } from "./sleek";
 const FAQS = [
   {
     q: "Does my data ever leave my machine?",
-    a: "No. Parsing, profiling, cleaning, SQL, and Axiom all run in your browser tab. Nothing is uploaded to a server, which is why there is no account required to start.",
+    a: "No. Parsing, profiling, cleaning, SQL, and Axiom all run in your browser tab, and your datasets are never uploaded, which is why no account is required to start. Optional sync carries your cleaning recipes between devices, encrypted on your device so the server cannot read them.",
   },
   {
     q: "How large a file can it handle?",

@@ -164,7 +164,7 @@ export function AppSidebar() {
       <div className="mt-4 flex flex-col gap-0.5 border-t border-white/[0.06] pt-4">
         {UTILITY_NAV.map(renderItem)}
         <p className="px-3 pt-3 text-[11px] leading-relaxed text-on-surface-variant/70">
-          Every feature is unlocked. Your data never leaves this device.
+          Every feature is unlocked. Your datasets never leave this device.
         </p>
       </div>
     </aside>

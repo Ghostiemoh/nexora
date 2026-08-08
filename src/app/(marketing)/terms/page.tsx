@@ -12,7 +12,7 @@ export default function TermsPage() {
     <ProsePage
       eyebrow="Terms"
       title="Terms of use"
-      intro="Nexora is free software with no account and no payment. These terms are correspondingly short."
+      intro="Nexora is free software with no payment and an optional account. These terms are correspondingly short."
       updated="4 August 2026"
     >
       <Section title="Using Nexora">

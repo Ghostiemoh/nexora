@@ -109,7 +109,7 @@ export function Toolkit() {
           <span className="text-on-surface-variant">All of it working today.</span>
         </h2>
         <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-on-surface-variant">
-          Eleven tools, one workspace, no server. Each card below links straight into the thing it
+          Eleven tools, one workspace, no account required. Each card below links straight into the thing it
           describes.
         </p>
       </Reveal>

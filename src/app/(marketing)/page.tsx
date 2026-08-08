@@ -101,7 +101,7 @@ export default function SleekLanding() {
               className="press inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-[13px] text-zinc-300"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Eleven tools, no account, no server
+              Eleven tools, no account required
               <ChevronRight className="h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
             </Link>
           </motion.div>
@@ -144,7 +144,7 @@ export default function SleekLanding() {
           </motion.div>
 
           <motion.p variants={staggerItem} className="mt-5 text-[13px] text-zinc-600">
-            Free forever · no account · runs 100% on your device
+            Free forever · no account required · analysis runs on your device
           </motion.p>
         </motion.div>
 
@@ -170,8 +170,8 @@ export default function SleekLanding() {
         </div>
         <Reveal className="mx-auto mt-10 max-w-lg text-center">
           <p className="text-[12.5px] leading-relaxed text-zinc-600">
-            These are product limits and capabilities, not usage statistics. Nexora has no analytics
-            and no server, so there is nothing here we could measure about you.
+            These are product limits and capabilities, not usage statistics. Nexora has no analytics,
+            so there is nothing here we could measure about you.
           </p>
         </Reveal>
       </section>
@@ -275,7 +275,7 @@ export default function SleekLanding() {
             Drop a file and watch it profile.
           </h2>
           <p className="relative mx-auto mt-4 max-w-md text-on-surface-variant">
-            No account, no upload to a server. The parsing happens in this tab, on your machine.
+            No account, no upload. The parsing happens in this tab, on your machine.
           </p>
           <div className="relative mt-9 flex justify-center">
             <Magnetic strength={0.3} className="inline-block">
