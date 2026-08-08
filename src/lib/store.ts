@@ -20,6 +20,9 @@ interface NexoraState {
   activeId: string | null;
   chatHistory: Record<string, ChatMessage[]>; // datasetId -> messages
   teamMembers: TeamMember[];
+  /** last local change to the roster, so sync can resolve a conflict on it
+   *  against a real edit time rather than an unrelated stamp */
+  teamUpdatedAt: number;
   tickets: SupportTicket[];
   notifications: AppNotification[];
   auditLog: AuditEntry[];
@@ -230,6 +233,7 @@ export const useNexora = create<NexoraState>()(
       activeId: null,
       chatHistory: {},
       teamMembers: defaultTeamMembers,
+      teamUpdatedAt: 0,
       tickets: defaultTickets,
       notifications: [],
       auditLog: [],
@@ -859,13 +863,15 @@ export const useNexora = create<NexoraState>()(
           teamMembers: [
             ...state.teamMembers,
             { ...member, id, initials, bgClass }
-          ]
+          ],
+          teamUpdatedAt: Date.now(),
         }));
       },
 
       removeTeamMember: (id) => {
         set((state) => ({
-          teamMembers: state.teamMembers.filter((m) => m.id !== id)
+          teamMembers: state.teamMembers.filter((m) => m.id !== id),
+          teamUpdatedAt: Date.now(),
         }));
       },
 
@@ -920,6 +926,7 @@ export const useNexora = create<NexoraState>()(
         activeId: state.activeId,
         chatHistory: state.chatHistory,
         teamMembers: state.teamMembers,
+        teamUpdatedAt: state.teamUpdatedAt,
         tickets: state.tickets,
         notifications: state.notifications,
         auditLog: state.auditLog,

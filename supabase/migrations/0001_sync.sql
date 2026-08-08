@@ -6,6 +6,10 @@
 -- key, so it is stable across a user's devices and opaque to everyone else,
 -- including us.
 
+-- Re-runnable on purpose. Postgres has no CREATE POLICY IF NOT EXISTS, even in
+-- 17, so each policy is dropped first; otherwise a retried `supabase db push`
+-- fails on the second attempt with the tables already in place.
+
 -- ── the vault ────────────────────────────────────────────────────────────────
 -- One random data key per account, stored only in wrapped form: once per
 -- credential (password, passphrase, each recovery code). Every entry is an
@@ -21,19 +25,23 @@ create table if not exists public.sync_vault (
 
 alter table public.sync_vault enable row level security;
 
+drop policy if exists "vault is readable only by its owner" on public.sync_vault;
 create policy "vault is readable only by its owner"
   on public.sync_vault for select
   using (auth.uid() = user_id);
 
+drop policy if exists "vault is writable only by its owner" on public.sync_vault;
 create policy "vault is writable only by its owner"
   on public.sync_vault for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "vault is updatable only by its owner" on public.sync_vault;
 create policy "vault is updatable only by its owner"
   on public.sync_vault for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "vault is deletable only by its owner" on public.sync_vault;
 create policy "vault is deletable only by its owner"
   on public.sync_vault for delete
   using (auth.uid() = user_id);
@@ -64,19 +72,23 @@ create index if not exists sync_records_user_revision_idx
 
 alter table public.sync_records enable row level security;
 
+drop policy if exists "records are readable only by their owner" on public.sync_records;
 create policy "records are readable only by their owner"
   on public.sync_records for select
   using (auth.uid() = user_id);
 
+drop policy if exists "records are writable only by their owner" on public.sync_records;
 create policy "records are writable only by their owner"
   on public.sync_records for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "records are updatable only by their owner" on public.sync_records;
 create policy "records are updatable only by their owner"
   on public.sync_records for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "records are deletable only by their owner" on public.sync_records;
 create policy "records are deletable only by their owner"
   on public.sync_records for delete
   using (auth.uid() = user_id);

@@ -15,6 +15,7 @@ import {
   generateDataKey,
   issueRecoveryCodes,
   unlockKeyRing,
+  unlockWithWrappingKey,
   wrapDataKey,
   type WrappedKeyRing,
 } from "./crypto";
@@ -38,6 +39,8 @@ export type SyncStage =
   /** this deployment has no Supabase credentials, so sync genuinely cannot work */
   | "unconfigured"
   | "signedOut"
+  /** account created, but the provider requires a confirmed email before a session */
+  | "awaitingConfirmation"
   /** signed in, but this account has no key ring yet: first-run setup */
   | "needsSetup"
   /** signed in, key ring exists, this device cannot open it yet */
@@ -50,6 +53,10 @@ interface SyncStore {
   userId: string | null;
   /** memory only, never persisted */
   dataKey: CryptoKey | null;
+  /** Set while signing in with a password, whose derivation has already been paid
+   *  for. Lets that path open or create the vault without asking for a second
+   *  secret the reader does not need. Memory only, dropped on sign-out. */
+  passwordWrappingKey: CryptoKey | null;
   /** shown once after setup, then dropped */
   freshRecoveryCodes: string[] | null;
   bookmarks: SyncBookmark[];
@@ -64,8 +71,9 @@ interface SyncStore {
   signInWithGoogle: () => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  /** first run: mint the data key and wrap it for this credential */
-  completeSetup: (secret: string) => Promise<void>;
+  /** First run: mint the data key and wrap it. Pass a passphrase for a Google
+   *  account; omit it when a password sign-in already derived the key. */
+  completeSetup: (secret?: string) => Promise<void>;
   unlock: (secret: string, remember: boolean) => Promise<void>;
   syncNow: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -92,6 +100,7 @@ export const useSync = create<SyncStore>()(
       email: null,
       userId: null,
       dataKey: null,
+      passwordWrappingKey: null,
       freshRecoveryCodes: null,
       bookmarks: [],
       recipeBook: [],
@@ -130,7 +139,27 @@ export const useSync = create<SyncStore>()(
 
           // A device trusted earlier can open the vault with nothing typed.
           const remembered = await recallDataKey();
-          set(remembered ? { stage: "unlocked", dataKey: remembered } : { stage: "locked" });
+          if (remembered) {
+            set({ stage: "unlocked", dataKey: remembered });
+            return;
+          }
+
+          /* A password sign-in has already derived the key that opens the vault,
+           * so asking for anything more would be theatre. */
+          const { passwordWrappingKey } = get();
+          if (passwordWrappingKey && ring) {
+            try {
+              const dataKey = await unlockWithWrappingKey(ring, passwordWrappingKey);
+              await trustDevice(dataKey);
+              set({ stage: "unlocked", dataKey });
+              void get().syncNow();
+              return;
+            } catch {
+              // The ring predates this password, so fall through and ask.
+            }
+          }
+
+          set({ stage: "locked" });
         } catch (error) {
           set({ stage: "locked", error: message(error) });
         }
@@ -156,11 +185,25 @@ export const useSync = create<SyncStore>()(
 
         try {
           /* The provider receives a derived secret, never the password itself, so
-           * it cannot derive the key that decrypts anything. */
-          const { authSecret } = await deriveSecrets(password, email);
-          const { error } = await supabase.auth.signUp({ email, password: authSecret });
+           * it cannot derive the key that decrypts anything. The second
+           * derivation is kept in memory so setup can wrap the data key without
+           * asking for a passphrase this account does not need. */
+          const { authSecret, wrappingKey } = await deriveSecrets(password, email);
+          const { data, error } = await supabase.auth.signUp({ email, password: authSecret });
           if (error) throw new Error(error.message);
+
+          set({ passwordWrappingKey: wrappingKey, email });
+
+          /* With email confirmation enabled, which is the Supabase default, a
+           * sign-up returns a user but no session. Saying so beats a button that
+           * appears to do nothing. */
+          if (!data.session) {
+            set({ stage: "awaitingConfirmation" });
+            return;
+          }
+
           await get().refresh();
+          if (get().stage === "needsSetup") await get().completeSetup();
         } catch (error) {
           set({ error: message(error) });
         } finally {
@@ -174,12 +217,15 @@ export const useSync = create<SyncStore>()(
         set({ busy: true, error: null });
 
         try {
-          const { authSecret } = await deriveSecrets(password, email);
+          const { authSecret, wrappingKey } = await deriveSecrets(password, email);
           const { error } = await supabase.auth.signInWithPassword({
             email,
             password: authSecret,
           });
           if (error) throw new Error(error.message);
+
+          // `refresh` uses this to open the vault without a second prompt.
+          set({ passwordWrappingKey: wrappingKey });
           await get().refresh();
         } catch (error) {
           set({ error: message(error) });
@@ -190,18 +236,31 @@ export const useSync = create<SyncStore>()(
 
       completeSetup: async (secret) => {
         const supabase = getSupabase();
-        const { userId, email } = get();
+        const { userId, email, passwordWrappingKey } = get();
         if (!supabase || !userId || !email) return;
         set({ busy: true, error: null });
 
         try {
+          /* Two routes in. A password sign-in already derived a key, so it fills
+           * the password slot and the reader manages one secret. Google supplies
+           * no secret at all, so a passphrase fills its own slot. */
+          const usingPassword = !secret && Boolean(passwordWrappingKey);
+          if (!usingPassword && !secret) {
+            throw new Error("A passphrase is required to create the vault.");
+          }
+
           const dataKey = await generateDataKey();
-          const { wrappingKey } = await deriveSecrets(secret, email);
+          const wrappingKey = usingPassword
+            ? passwordWrappingKey!
+            : (await deriveSecrets(secret!, email)).wrappingKey;
           const { codes, wrapped } = await issueRecoveryCodes(dataKey, email);
 
+          const wrappedForCredential = await wrapDataKey(dataKey, wrappingKey);
           const ring: WrappedKeyRing = {
             ...emptyKeyRing(),
-            passphrase: await wrapDataKey(dataKey, wrappingKey),
+            ...(usingPassword
+              ? { password: wrappedForCredential }
+              : { passphrase: wrappedForCredential }),
             recovery: wrapped,
           };
           await saveKeyRing(supabase, userId, ring);
@@ -252,7 +311,7 @@ export const useSync = create<SyncStore>()(
             records: buildSyncRecords({
               datasets: workspace.datasets,
               teamMembers: workspace.teamMembers,
-              rosterUpdatedAt: get().lastSyncAt ?? 0,
+              rosterUpdatedAt: workspace.teamUpdatedAt,
             }),
             bookmarks,
             now: Date.now(),
@@ -265,7 +324,12 @@ export const useSync = create<SyncStore>()(
             if (envelope.kind === "recipe") {
               mergedBook = mergeRecipeBooks(mergedBook, [parseRecipeBookEntry(envelope.payload)]);
             } else if (envelope.kind === "roster") {
-              useNexora.setState({ teamMembers: envelope.payload as TeamMember[] });
+              /* Adopt the incoming edit time too, otherwise this device looks
+               * like it changed the roster the moment it received one. */
+              useNexora.setState({
+                teamMembers: envelope.payload as TeamMember[],
+                teamUpdatedAt: envelope.updatedAt,
+              });
             }
           }
 
@@ -299,6 +363,7 @@ export const useSync = create<SyncStore>()(
             stage: isSyncConfigured() ? "signedOut" : "unconfigured",
             userId: null,
             dataKey: null,
+            passwordWrappingKey: null,
             bookmarks: [],
             recipeBook: [],
             lastSyncAt: null,
@@ -312,7 +377,9 @@ export const useSync = create<SyncStore>()(
 
       untrustDevice: async () => {
         await forgetDevice();
-        set({ stage: "locked", dataKey: null });
+        // The derived password key would re-open the vault on the next refresh,
+        // which is the opposite of what "forget this device" means.
+        set({ stage: "locked", dataKey: null, passwordWrappingKey: null });
       },
 
       purge: async () => {

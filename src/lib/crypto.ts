@@ -195,17 +195,17 @@ export function emptyKeyRing(): WrappedKeyRing {
   return { version: CRYPTO_VERSION, recovery: [] };
 }
 
-/** Try a secret against every slot on the ring. There is no check value to
- *  compare against, so a wrong secret is detected by AES-GCM refusing to
- *  authenticate, which is why each attempt is wrapped in its own catch. */
-export async function unlockKeyRing(
+/** Try an already-derived wrapping key against every slot on the ring. There is
+ *  no check value to compare against, so a wrong key is detected by AES-GCM
+ *  refusing to authenticate, which is why each attempt gets its own catch.
+ *
+ *  Separate from `unlockKeyRing` because signing in with a password has already
+ *  paid for the derivation: that path should open the vault without asking the
+ *  reader for a second secret it does not need. */
+export async function unlockWithWrappingKey(
   ring: WrappedKeyRing,
-  secret: string,
-  email: string,
-  iterations: number = KDF_ITERATIONS
+  wrappingKey: CryptoKey
 ): Promise<CryptoKey> {
-  const { wrappingKey } = await deriveSecrets(secret, email, iterations);
-
   const slots = [ring.password, ring.passphrase, ...ring.recovery].filter(
     (slot): slot is WrappedKey => Boolean(slot)
   );
@@ -214,11 +214,23 @@ export async function unlockKeyRing(
     try {
       return await unwrapDataKey(slot, wrappingKey);
     } catch {
-      // Wrong slot for this secret. Keep going.
+      // Wrong slot for this key. Keep going.
     }
   }
 
   throw new Error("That password, passphrase, or recovery code did not unlock this account.");
+}
+
+/** Derive from a typed secret, then try the ring. Used for a passphrase or a
+ *  recovery code, where nothing has been derived yet. */
+export async function unlockKeyRing(
+  ring: WrappedKeyRing,
+  secret: string,
+  email: string,
+  iterations: number = KDF_ITERATIONS
+): Promise<CryptoKey> {
+  const { wrappingKey } = await deriveSecrets(secret, email, iterations);
+  return unlockWithWrappingKey(ring, wrappingKey);
 }
 
 /** Issue a fresh set of recovery codes for an already-unlocked data key. Returns

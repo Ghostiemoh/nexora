@@ -202,14 +202,78 @@ function SignedOut() {
   );
 }
 
+function AwaitingConfirmation() {
+  const { email, signOut } = useSync();
+
+  return (
+    <Panel eyebrow="Almost there" title="Confirm your email address." icon={KeyRound}>
+      <p className="text-sm leading-6 text-on-surface-variant">
+        An account was created for <span className="text-on-surface">{email}</span> and a
+        confirmation link is on its way. Open it, then come back here and sign in. Nothing has been
+        uploaded and no vault exists yet.
+      </p>
+      <button
+        type="button"
+        onClick={() => void signOut()}
+        className="press h-10 cursor-pointer rounded-lg border border-outline-variant px-4 text-sm text-on-surface-variant hover:bg-white/[0.06]"
+      >
+        Back to sign in
+      </button>
+    </Panel>
+  );
+}
+
 function NeedsSetup() {
-  const { completeSetup, email, busy, error, clearError } = useSync();
+  const { completeSetup, email, busy, error, clearError, passwordWrappingKey } = useSync();
   const [passphrase, setPassphrase] = useState("");
   const [confirm, setConfirm] = useState("");
   const [understood, setUnderstood] = useState(false);
 
+  /* A password sign-in already derived the key that will wrap the vault, so
+   * asking for a second secret would add a thing to lose and protect nothing. */
+  const usesPassword = Boolean(passwordWrappingKey);
+
   const mismatch = confirm.length > 0 && passphrase !== confirm;
-  const ready = passphrase.length >= 10 && passphrase === confirm && understood && !busy;
+  const ready = usesPassword
+    ? understood && !busy
+    : passphrase.length >= 10 && passphrase === confirm && understood && !busy;
+
+  if (usesPassword) {
+    return (
+      <Panel eyebrow="One more step" title="Create your vault." icon={KeyRound}>
+        <p className="text-sm leading-6 text-on-surface-variant">
+          Signed in as <span className="text-on-surface">{email}</span>. Your password already
+          encrypts this vault, so there is no second secret to invent. Recovery codes come next, and
+          they are the only other way in.
+        </p>
+
+        <label className="flex cursor-pointer gap-2.5 rounded-lg border border-error/35 bg-error/5 p-3">
+          <input
+            type="checkbox"
+            checked={understood}
+            onChange={(event) => setUnderstood(event.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+          />
+          <span className="text-xs leading-5 text-on-surface-variant">
+            I understand that Nexora cannot recover my synced data if I forget my password and lose my
+            recovery codes. There is no master key.
+          </span>
+        </label>
+
+        <button
+          type="button"
+          onClick={() => void completeSetup()}
+          disabled={!ready}
+          className="pill h-10 w-full bg-primary text-sm text-on-primary disabled:opacity-50"
+        >
+          {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          Create the vault
+        </button>
+
+        {error && <ErrorLine>{error}</ErrorLine>}
+      </Panel>
+    );
+  }
 
   return (
     <Panel eyebrow="One more step" title="Create your encryption passphrase." icon={KeyRound}>
@@ -549,6 +613,8 @@ export function AccountPanel() {
       return <Unconfigured />;
     case "signedOut":
       return <SignedOut />;
+    case "awaitingConfirmation":
+      return <AwaitingConfirmation />;
     case "needsSetup":
       return <NeedsSetup />;
     case "locked":

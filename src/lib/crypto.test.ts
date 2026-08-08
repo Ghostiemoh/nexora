@@ -16,6 +16,7 @@ import {
   fromBase64,
   emptyKeyRing,
   unlockKeyRing,
+  unlockWithWrappingKey,
   issueRecoveryCodes,
 } from "./crypto";
 
@@ -246,6 +247,41 @@ describe("the key ring", () => {
       const unlocked = await unlockKeyRing(ring, secret, EMAIL, FAST);
       expect(await unseal(unlocked, sealed)).toEqual({ vault: "shared" });
     }
+  });
+
+  /* Signing in with a password has already paid for the derivation, so that path
+   * must open the vault from the key it already holds. Without this, a password
+   * account gets asked to invent a passphrase it does not need, which is a second
+   * secret to lose protecting nothing. */
+  it("opens the password slot from an already-derived key, with nothing retyped", async () => {
+    const dataKey = await generateDataKey();
+    const { wrappingKey } = await deriveSecrets(PASSWORD, EMAIL, FAST);
+    const ring = { ...emptyKeyRing(), password: await wrapDataKey(dataKey, wrappingKey) };
+
+    const sealed = await seal(dataKey, { opened: "without a prompt" });
+    const unlocked = await unlockWithWrappingKey(ring, wrappingKey);
+    expect(await unseal(unlocked, sealed)).toEqual({ opened: "without a prompt" });
+  });
+
+  it("refuses an already-derived key that matches no slot", async () => {
+    const dataKey = await generateDataKey();
+    const right = await deriveSecrets(PASSWORD, EMAIL, FAST);
+    const wrong = await deriveSecrets("someone else's password", EMAIL, FAST);
+    const ring = { ...emptyKeyRing(), password: await wrapDataKey(dataKey, right.wrappingKey) };
+
+    await expect(unlockWithWrappingKey(ring, wrong.wrappingKey)).rejects.toThrow();
+  });
+
+  it("reaches a recovery slot from a derived key too, so one code path covers both", async () => {
+    const dataKey = await generateDataKey();
+    const { codes, wrapped } = await issueRecoveryCodes(dataKey, EMAIL, 2, FAST);
+    const ring = { ...emptyKeyRing(), recovery: wrapped };
+
+    const { wrappingKey } = await deriveSecrets(codes[1], EMAIL, FAST);
+    const sealed = await seal(dataKey, { rescued: true });
+    expect(await unseal(await unlockWithWrappingKey(ring, wrappingKey), sealed)).toEqual({
+      rescued: true,
+    });
   });
 
   it("refuses a secret that matches no slot, with a message a person can act on", async () => {

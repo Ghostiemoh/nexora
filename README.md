@@ -95,7 +95,15 @@ Excluded on purpose, and enforced by a test that fails the build if the list is 
 
 Losing both your passphrase and your recovery codes means the synced records cannot be recovered. That is the price of the server not being able to read them.
 
-To run sync on your own deployment, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` and apply `supabase/migrations`. Without them the feature reports itself unavailable rather than presenting a sign-in that cannot work.
+Signing in with an email and password needs one secret, not two: that password already derives the key, so those accounts never see a passphrase prompt and a second device unlocks on sign-in alone. Google accounts set a passphrase once, because OAuth hands over identity and no secret at all.
+
+To run sync on your own deployment, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` and apply `supabase/migrations`. Without them the feature reports itself unavailable rather than presenting a sign-in that cannot work. `.env.example` has the full setup, including the Google provider.
+
+Three things live in Postgres rather than in TypeScript and so cannot be covered by the offline suite: whether the migration applied, whether row level security actually isolates one account from another, and whether the revision trigger fires. `supabase-live.test.ts` covers all three against a real project and skips itself when no credentials are set, so `npm test` stays offline and deterministic:
+
+```bash
+npx vitest run src/lib/supabase-live.test.ts   # needs credentials and "Confirm email" off
+```
 
 ### Alerts, audit log, and history
 
