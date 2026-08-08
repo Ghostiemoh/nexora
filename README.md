@@ -8,6 +8,8 @@ Real exports arrive broken in predictable ways. An unnamed index column. Dates s
 
 Fixing that by hand takes about forty minutes, and next month the same export shows up and you do it again. Nexora fixes it in a click and saves the steps to a file you can replay.
 
+The second month is the point. Nexora recognizes that the file you just dropped is another copy of one it has already cleaned, replays that exact cleanup, and then tells you what moved since last time. Same sequence in, same shape out, and a comparison at the end instead of a fresh set of judgement calls.
+
 ## How it is organised
 
 The workspace follows the order real analysis happens in, and each step is its own page.
@@ -33,6 +35,14 @@ The one-click fixes cover duplicate and blank rows, stray whitespace, broken enc
 ### Cleaning recipes
 
 Every fix you apply gets recorded. Export the sequence as a recipe file and you can replay the entire cleanup on next month's copy of the same messy export in one click. Undo works on any step.
+
+### The monthly close
+
+A recipe is only worth recording if something knows when to replay it, so Nexora works that out for you. Drop in this month's export and it is matched against every dataset already on the device by normalized column names and inferred types. Headers drift between periods, so `Order Date`, `order_date`, and `ORDER-DATE` all read as one column, and a file that shares every header but agrees on none of the types is refused rather than matched. Columns the saved recipe deletes on its own are not counted against the match, since the stored copy is the cleaned file and the new one is still raw.
+
+On a match, the workspace front door offers the close: replay the recorded steps, then read what changed. Schema drift comes first, because a column that arrived as text instead of numbers invalidates every total underneath it and you need to know that before you read anything else. Then row count, then the total and the mean of each numeric column, so a figure that moved because volume grew is distinguishable from one that moved because size did. Then the columns that arrived emptier than last period, then the category values that appeared and stopped appearing.
+
+Nothing is applied without the click, undo still works afterwards, and a file that already carries applied steps shows the comparison rather than inviting a second pass over the same fixes.
 
 ### Dashboard
 
@@ -91,6 +101,8 @@ Next.js (App Router), React, TypeScript, Tailwind, Zustand, Recharts, PapaParse,
 ## How the code is arranged
 
 `src/lib/` holds the logic and imports no React: profiling, cleaning, the SQL engine, column semantics, KPI derivation, dashboard composition, pivots, chart recommendation, recipes, and the read-only SQL guard. The unit suite covers all of it, so the statistics can be checked instead of taken on faith.
+
+`fingerprint.ts` and `period-diff.ts` are the monthly close. The first decides whether two files are the same recurring export and reports exactly what drifted between them; the second measures the movement between two profiled datasets and writes it out in sentences. Both are pure, and `monthly-close.test.ts` exercises the whole loop as one pipeline: clean a file, drop in next month's copy, recognize it, replay, compare. That test fails if the loop breaks even while every individual module still passes.
 
 The interesting pair is `semantics.ts` and `kpi.ts`. The first works out what a column means from its name and its distribution; the second turns that reading into KPI tiles, and refuses to emit one the data cannot support. `dashboard.ts` then composes panels as `ChartConfig` objects, which is the same shape the chart studio and the renderer already speak — that is what lets every panel on the dashboard be re-typed by the reader with no separate code path.
 

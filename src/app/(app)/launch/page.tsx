@@ -17,6 +17,7 @@ import {
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { UploadDropzone } from "@/components/upload-dropzone";
+import { PeriodCloseCard } from "@/components/period-close";
 import { fileTypeOf, formatStamp, relativeTime, describeDataset, wasModified } from "@/lib/dataset-meta";
 import type { Dataset } from "@/lib/types";
 
@@ -215,6 +216,10 @@ export default function LaunchPage() {
           start a fresh analysis. Nothing opens until you choose.
         </p>
       </header>
+
+      {/* Surfaced before the two paths: when this month's file is a repeat, the
+          close is the shortest route through the whole workspace. */}
+      <PeriodCloseCard />
 
       {/* The two paths */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
