@@ -99,9 +99,12 @@ Signing in with an email and password needs one secret, not two: that password a
 
 To run sync on your own deployment, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` and apply `supabase/migrations`. Without them the feature reports itself unavailable rather than presenting a sign-in that cannot work. `.env.example` has the full setup, including the Google provider.
 
-Three things live in Postgres rather than in TypeScript and so cannot be covered by the offline suite: whether the migration applied, whether row level security actually isolates one account from another, and whether the revision trigger fires. `supabase-live.test.ts` covers all three against a real project and skips itself when no credentials are set, so `npm test` stays offline and deterministic:
+The migration is the riskiest file in the feature, so it is tested rather than trusted. `migration.test.ts` applies it to real PostgreSQL 18 running in WebAssembly through PGlite, with no Docker and no network, and checks the things that only the database can answer: that the DDL is valid, that it survives a second run, that the trigger assigns revision 1 on insert and ignores a revision the client tries to claim, that the size ceiling holds, and that the policies isolate one account from another even when a query names the owner explicitly or tries to reassign a row. Every query there runs after `set role` to a non-superuser, since both superusers and a table's owner bypass row level security.
+
+What that cannot reach is Supabase's own `auth.users` and `auth.uid()`, which are stubbed. The policy logic is exercised for real; the wiring from a JWT to `auth.uid()` is not. `supabase-live.test.ts` closes that last gap against a hosted project and skips itself without credentials, so `npm test` stays offline and deterministic:
 
 ```bash
+npx vitest run src/lib/migration.test.ts       # offline, no setup
 npx vitest run src/lib/supabase-live.test.ts   # needs credentials and "Confirm email" off
 ```
 
