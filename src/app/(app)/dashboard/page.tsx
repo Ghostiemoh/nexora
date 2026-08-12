@@ -21,6 +21,7 @@ import { ChartPanel } from "@/components/dashboard/chart-panel";
 import { FilterBar } from "@/components/dashboard/filter-bar";
 import { ChartStudio } from "@/components/chart-studio";
 import { PinnedCharts } from "@/components/pinned-charts";
+import { NarrativePanel } from "@/components/dashboard/narrative-panel";
 import { CategoryExplorer } from "@/components/category-explorer";
 import { DashboardExportModal } from "@/components/export/dashboard-export-modal";
 import { buildKpis } from "@/lib/kpi";
@@ -28,6 +29,7 @@ import { buildDashboardLayout, applyFilters, describeFilters } from "@/lib/dashb
 import { buildDashboard } from "@/lib/auto-dashboard";
 import { buildChartSeries, type ChartType } from "@/lib/chart-recommend";
 import type { ChartCapture } from "@/lib/export-run";
+import { PAGE_CENTERED, PAGE_WIDE } from "@/components/layout/page-shell";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
@@ -106,7 +108,7 @@ export default function DashboardPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-8">
+      <div className={PAGE_CENTERED}>
         <p className="font-mono text-xs text-on-surface-variant">Building the dashboard…</p>
       </div>
     );
@@ -145,7 +147,7 @@ export default function DashboardPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="mx-auto max-w-[1440px] space-y-6 p-4 sm:p-6 md:p-8"
+      className={`${PAGE_WIDE} space-y-6`}
     >
       {/* Header */}
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
@@ -252,16 +254,23 @@ export default function DashboardPage() {
             currency={kpiResult.currency}
           />
 
-          {insights.length > 0 && (
+          {/* The story of the whole dataset, before any of the charts. The
+              findings behind it were always being computed and only ever
+              rendered on the Reports page, so the dashboard read as a grid of
+              tiles with no argument in it. */}
+          {!filtered && <NarrativePanel dataset={activeDataset} />}
+
+          {/* The narrative above covers the unfiltered dataset. This shorter
+              list stays for the filtered view, where it is saying something
+              the narrative is not: what stands out within the current slice. */}
+          {filtered && insights.length > 0 && (
             <section className="nexora-card p-5" aria-label="Automatic insights">
               <div className="mb-3 flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-amber-400" aria-hidden="true" />
                 <h2 className="text-[13px] font-semibold text-white">What stands out</h2>
-                {filtered && (
-                  <span className="font-mono text-[10px] text-on-surface-variant">
-                    (within the current filter)
-                  </span>
-                )}
+                <span className="font-mono text-[10px] text-on-surface-variant">
+                  (within the current filter)
+                </span>
               </div>
               <ul className="grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
                 {insights.map((insight) => (
