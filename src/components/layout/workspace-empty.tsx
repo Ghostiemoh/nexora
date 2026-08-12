@@ -39,7 +39,7 @@ export function WorkspaceEmpty({
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
         <p className="text-[11px] text-on-surface-variant/70">
-          Runs on this device. Your datasets are never uploaded.
+          Runs on this device. Nothing is uploaded unless you sign in to sync.
         </p>
       </div>
     </motion.div>

@@ -40,6 +40,39 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
+/** Which third-party sign-in providers this project actually has switched on.
+ *
+ * Worth asking, because a button for a disabled provider does not fail politely.
+ * Supabase answers the authorize redirect with a bare
+ * `{"error_code":"validation_failed","msg":"Unsupported provider: provider is
+ * not enabled"}` document: the reader has left the app, is looking at raw JSON,
+ * and the only way back is the browser's back button. Not offering the button is
+ * the whole fix.
+ *
+ * `/auth/v1/settings` is public, needs no session, and answers with the
+ * publishable key alone. If the request fails we report nothing as enabled and
+ * fall back to email, which is always available and always works — a network
+ * blip should not be able to hide the sign-in the reader came for. */
+export async function fetchEnabledProviders(): Promise<Set<string>> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return new Set();
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+      headers: { apikey: SUPABASE_ANON_KEY },
+    });
+    if (!response.ok) return new Set();
+
+    const body = (await response.json()) as { external?: Record<string, boolean> };
+    return new Set(
+      Object.entries(body.external ?? {})
+        .filter(([, enabled]) => enabled)
+        .map(([name]) => name)
+    );
+  } catch {
+    return new Set();
+  }
+}
+
 /* ── the vault ── */
 
 export async function loadKeyRing(
@@ -158,9 +191,92 @@ export async function purgeRemoteWorkspace(
   supabase: SupabaseClient,
   userId: string
 ): Promise<void> {
+  /* Blobs first. If this throws, the records that point at them are still
+   * present, and a retry knows what to delete. Clearing the pointers first would
+   * strand every blob in the bucket with nothing left referring to it. */
+  await removeAllDatasetBlobs(supabase, userId);
+
   const records = await supabase.from("sync_records").delete().eq("user_id", userId);
   if (records.error) throw new Error(records.error.message);
 
   const vault = await supabase.from("sync_vault").delete().eq("user_id", userId);
   if (vault.error) throw new Error(vault.error.message);
+}
+
+/* ── dataset blobs ──
+ *
+ * Datasets are too large for `sync_records` and live in a private bucket
+ * instead, one object per dataset at `<user id>/<blinded id>`. That first path
+ * segment is what the bucket's policies check, so the path is not a convenience
+ * — it is the access control.
+ *
+ * Everything here handles sealed bytes only. `dataset-blob.ts` compresses and
+ * seals before anything reaches this file, exactly as `sync-service.ts` does for
+ * records, so no change here can put a readable row on the wire. */
+
+const DATASET_BUCKET = "datasets";
+
+function blobPath(userId: string, blindedId: string): string {
+  return `${userId}/${blindedId}`;
+}
+
+export async function uploadDatasetBlob(
+  supabase: SupabaseClient,
+  userId: string,
+  blindedId: string,
+  bytes: Uint8Array
+): Promise<void> {
+  const { error } = await supabase.storage
+    .from(DATASET_BUCKET)
+    .upload(blobPath(userId, blindedId), bytes as BlobPart, {
+      contentType: "application/octet-stream",
+      // The same dataset re-uploads over itself on every change.
+      upsert: true,
+    });
+
+  if (error) throw new Error(error.message);
+}
+
+/** `null` when the object is absent, which is not an error: a record can arrive
+ *  from another device fractionally before the blob it points at finishes
+ *  uploading, and the next sync picks it up. */
+export async function downloadDatasetBlob(
+  supabase: SupabaseClient,
+  userId: string,
+  blindedId: string
+): Promise<Uint8Array | null> {
+  const { data, error } = await supabase.storage
+    .from(DATASET_BUCKET)
+    .download(blobPath(userId, blindedId));
+
+  if (error) return null;
+  if (!data) return null;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+export async function removeDatasetBlob(
+  supabase: SupabaseClient,
+  userId: string,
+  blindedId: string
+): Promise<void> {
+  const { error } = await supabase.storage
+    .from(DATASET_BUCKET)
+    .remove([blobPath(userId, blindedId)]);
+
+  if (error) throw new Error(error.message);
+}
+
+/** Empties this account's folder. Used by purge, and only ever able to see one
+ *  folder because the bucket's select policy scopes the listing to the caller. */
+export async function removeAllDatasetBlobs(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<void> {
+  const { data, error } = await supabase.storage.from(DATASET_BUCKET).list(userId);
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) return;
+
+  const paths = data.map((entry) => blobPath(userId, entry.name));
+  const removed = await supabase.storage.from(DATASET_BUCKET).remove(paths);
+  if (removed.error) throw new Error(removed.error.message);
 }

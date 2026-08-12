@@ -10,6 +10,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
+  blindId,
   deriveSecrets,
   emptyKeyRing,
   generateDataKey,
@@ -22,16 +23,32 @@ import {
 import { forgetDevice, recallDataKey, trustDevice } from "./device-key";
 import {
   createSupabaseTransport,
+  downloadDatasetBlob,
+  fetchEnabledProviders,
   getSupabase,
   isSyncConfigured,
   loadKeyRing,
   purgeRemoteWorkspace,
   saveKeyRing,
+  uploadDatasetBlob,
 } from "./supabase-client";
-import { runSync, type SyncBookmark } from "./sync-service";
-import { buildSyncRecords, mergeRecipeBooks, parseRecipeBookEntry, type RecipeBookEntry } from "./sync-payload";
+import { openDataset, sealDataset } from "./dataset-blob";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  hashRecordContent,
+  runSync,
+  type SealedEnvelope,
+  type SyncBookmark,
+} from "./sync-service";
+import {
+  buildSyncRecords,
+  mergeRecipeBooks,
+  parseDatasetPointer,
+  parseRecipeBookEntry,
+  type RecipeBookEntry,
+} from "./sync-payload";
 import { useNexora } from "./store";
-import type { TeamMember } from "./types";
+import type { Dataset, TeamMember } from "./types";
 
 /** Where the account is in its lifecycle. The UI renders one stage at a time
  *  rather than guessing from a pile of booleans. */
@@ -66,8 +83,16 @@ interface SyncStore {
   lastSyncSummary: string | null;
   busy: boolean;
   error: string | null;
+  /** Whether the project has the Google provider switched on. `null` means it
+   *  has not been asked yet, which the panel treats as "do not offer it": a
+   *  button that flickers into existence is worse than one that appears once. */
+  googleAvailable: boolean | null;
+  /** The reader chose to carry on without an account. Persisted, because being
+   *  asked again on every visit is how an optional step stops feeling optional. */
+  syncPromptDismissed: boolean;
 
   refresh: () => Promise<void>;
+  dismissSyncPrompt: () => void;
   signInWithGoogle: () => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
@@ -93,6 +118,34 @@ function ringHasCredential(ring: WrappedKeyRing | null): boolean {
   return Boolean(ring && (ring.password || ring.passphrase || ring.recovery.length > 0));
 }
 
+/** Fetch and open the blob a dataset record points at.
+ *
+ * `null` covers the two outcomes that are not failures. Either this device
+ * already holds a copy at least as new, in which case downloading megabytes to
+ * compare them would be waste; or the blob has not finished uploading from the
+ * other device, in which case the record arrived first and the next sync will
+ * find it. Neither is worth interrupting a sync over. */
+async function adoptDataset(
+  supabase: SupabaseClient,
+  userId: string,
+  dataKey: CryptoKey,
+  envelope: SealedEnvelope
+): Promise<Dataset | null> {
+  const pointer = parseDatasetPointer(envelope.payload);
+
+  const local = useNexora.getState().datasets.find((d) => d.id === pointer.datasetId);
+  if (local && local.updatedAt >= pointer.updatedAt) return null;
+
+  const bytes = await downloadDatasetBlob(
+    supabase,
+    userId,
+    await blindId(dataKey, envelope.logicalId)
+  );
+  if (!bytes) return null;
+
+  return openDataset(dataKey, bytes);
+}
+
 export const useSync = create<SyncStore>()(
   persist(
     (set, get) => ({
@@ -108,9 +161,12 @@ export const useSync = create<SyncStore>()(
       lastSyncSummary: null,
       busy: false,
       error: null,
+      googleAvailable: null,
+      syncPromptDismissed: false,
 
       clearError: () => set({ error: null }),
       dismissRecoveryCodes: () => set({ freshRecoveryCodes: null }),
+      dismissSyncPrompt: () => set({ syncPromptDismissed: true }),
 
       /** Read the current session and decide which stage the UI should show.
        *  Called on mount and after the OAuth redirect lands. */
@@ -119,6 +175,16 @@ export const useSync = create<SyncStore>()(
         if (!supabase) {
           set({ stage: "unconfigured" });
           return;
+        }
+
+        /* Which providers exist is a property of the deployment rather than of
+         * the reader, so it is asked once and not re-asked on later refreshes.
+         * Deliberately not awaited: the session below decides what the reader
+         * sees, and it should not wait on a question about a single button. */
+        if (get().googleAvailable === null) {
+          void fetchEnabledProviders().then((providers) =>
+            set({ googleAvailable: providers.has("google") })
+          );
         }
 
         const { data } = await supabase.auth.getSession();
@@ -305,14 +371,42 @@ export const useSync = create<SyncStore>()(
 
         try {
           const workspace = useNexora.getState();
+          const records = buildSyncRecords({
+            datasets: workspace.datasets,
+            teamMembers: workspace.teamMembers,
+            rosterUpdatedAt: workspace.teamUpdatedAt,
+          });
+
+          /* Blobs go up before the records that point at them. A pointer landing
+           * first would be a promise this device had not yet kept, and the second
+           * device would show a dataset it cannot open.
+           *
+           * Only what actually changed is uploaded. The comparison is the same
+           * content hash the engine uses for records, so a dataset whose
+           * `updatedAt` moved without its contents changing costs nothing. */
+          const seen = new Map(bookmarks.map((bookmark) => [bookmark.logicalId, bookmark]));
+          for (const record of records) {
+            if (record.kind !== "dataset") continue;
+
+            const hash = await hashRecordContent(record.kind, record.payload);
+            if (seen.get(record.logicalId)?.contentHash === hash) continue;
+
+            const pointer = parseDatasetPointer(record.payload);
+            const dataset = workspace.datasets.find((d) => d.id === pointer.datasetId);
+            if (!dataset) continue;
+
+            await uploadDatasetBlob(
+              supabase,
+              userId,
+              await blindId(dataKey, record.logicalId),
+              await sealDataset(dataKey, dataset)
+            );
+          }
+
           const outcome = await runSync({
             transport: createSupabaseTransport(supabase, userId),
             dataKey,
-            records: buildSyncRecords({
-              datasets: workspace.datasets,
-              teamMembers: workspace.teamMembers,
-              rosterUpdatedAt: workspace.teamUpdatedAt,
-            }),
+            records,
             bookmarks,
             now: Date.now(),
           });
@@ -320,6 +414,7 @@ export const useSync = create<SyncStore>()(
           // Adopt what came down. Recipes merge by schema; the roster replaces,
           // since it is one record rather than a set.
           let mergedBook = recipeBook;
+          const arrived: (Dataset | null)[] = [];
           for (const envelope of outcome.pulled) {
             if (envelope.kind === "recipe") {
               mergedBook = mergeRecipeBooks(mergedBook, [parseRecipeBookEntry(envelope.payload)]);
@@ -330,7 +425,19 @@ export const useSync = create<SyncStore>()(
                 teamMembers: envelope.payload as TeamMember[],
                 teamUpdatedAt: envelope.updatedAt,
               });
+            } else if (envelope.kind === "dataset") {
+              arrived.push(await adoptDataset(supabase, userId, dataKey, envelope));
             }
+          }
+
+          /* One write for all of them. Adopting datasets one at a time would
+           * re-render the workspace once per arrival, and a first sync onto a
+           * fresh device can carry a dozen. */
+          const adopted = arrived.filter((dataset): dataset is Dataset => dataset !== null);
+          if (adopted.length > 0) {
+            const byId = new Map(useNexora.getState().datasets.map((d) => [d.id, d]));
+            for (const dataset of adopted) byId.set(dataset.id, dataset);
+            useNexora.setState({ datasets: [...byId.values()] });
           }
 
           const parts = [
@@ -418,6 +525,7 @@ export const useSync = create<SyncStore>()(
         bookmarks: state.bookmarks,
         recipeBook: state.recipeBook,
         lastSyncAt: state.lastSyncAt,
+        syncPromptDismissed: state.syncPromptDismissed,
       }),
     }
   )

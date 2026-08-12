@@ -57,14 +57,19 @@ const roster: TeamMember[] = [
 ];
 
 describe("the allowlist", () => {
-  it("transmits only recipes and the roster", () => {
-    expect([...SYNCED_KINDS]).toEqual(["recipe", "roster"]);
+  it("transmits recipes, the roster, and datasets", () => {
+    expect([...SYNCED_KINDS]).toEqual(["recipe", "roster", "dataset"]);
   });
 
-  /* The regression guard that matters. If someone later adds datasets or a
-   * connection string to the sync path, this fails rather than quietly shipping
-   * a client's rows to a server. */
-  it("never emits a record for anything on the excluded list", () => {
+  /* The regression guard that matters, narrowed rather than deleted when
+   * datasets started syncing in Phase 2.
+   *
+   * Rows do leave the device now. What must never happen is a row leaving inside
+   * a *record*: records are capped at 1 MB and, more to the point, this is the
+   * one function that decides what the server is handed. Rows travel only as
+   * sealed bytes in the Storage bucket, so a cell value appearing here would
+   * mean someone had routed data around `dataset-blob.ts` entirely. */
+  it("keeps every cell value out of the records, even now datasets sync", () => {
     const dataset = makeDataset("Sales September", sales, ops);
     const records = buildSyncRecords({
       datasets: [dataset],
@@ -76,10 +81,28 @@ describe("the allowlist", () => {
     for (const kind of Object.keys(NEVER_SYNCED)) {
       expect(records.some((r) => (r.kind as string) === kind)).toBe(false);
     }
-    // No cell value from the dataset appears anywhere in the outbound payload.
     expect(serialized).not.toContain("acme");
     expect(serialized).not.toContain("globex");
     expect(serialized).not.toContain("1200");
+  });
+
+  it("describes a dataset without carrying it", () => {
+    const dataset = makeDataset("Sales September", sales, ops);
+    const records = buildSyncRecords({
+      datasets: [dataset],
+      teamMembers: [],
+      rosterUpdatedAt: 0,
+    });
+
+    const record = records.find((r) => r.kind === "dataset");
+    expect(record).toBeDefined();
+    expect(record!.logicalId).toBe(`dataset:${dataset.id}`);
+
+    const pointer = record!.payload as Record<string, unknown>;
+    expect(pointer.name).toBe("Sales September");
+    expect(pointer.rowCount).toBe(dataset.rows.length);
+    // The rows themselves are conspicuously absent.
+    expect(pointer.rows).toBeUndefined();
   });
 
   it("documents a reason for every exclusion", () => {
@@ -90,7 +113,8 @@ describe("the allowlist", () => {
 
   it("rejects a record kind it does not recognize", () => {
     expect(isSyncedKind("recipe")).toBe(true);
-    expect(isSyncedKind("dataset")).toBe(false);
+    expect(isSyncedKind("dataset")).toBe(true);
+    expect(isSyncedKind("connections")).toBe(false);
     expect(isSyncedKind(null)).toBe(false);
   });
 });
@@ -227,17 +251,34 @@ describe("the close on a second device", () => {
 });
 
 describe("buildSyncRecords", () => {
-  it("gives every record a device-independent logical id", () => {
+  it("keys a recipe by its schema rather than by any local dataset", () => {
     const records = buildSyncRecords({
       datasets: [makeDataset("Sales September", sales, ops)],
       teamMembers: roster,
       rosterUpdatedAt: 2_000,
     });
-    expect(records.map((r) => r.kind).sort()).toEqual(["recipe", "roster"]);
+    expect(records.map((r) => r.kind).sort()).toEqual(["dataset", "recipe", "roster"]);
     // The id must not carry a local dataset id.
     expect(records.find((r) => r.kind === "recipe")!.logicalId).not.toContain(
       "Sales September"
     );
+  });
+
+  /* Datasets are the deliberate exception to the rule above. A recipe is a shape
+   * and belongs to every file sharing it; a dataset is one particular import, so
+   * it keeps the id of the device that made it. The consequence is that the same
+   * file imported on two machines stays two datasets, which is the honest answer
+   * — collapsing them would mean guessing that two files with matching columns
+   * are the same data. */
+  it("keys a dataset by the importing device's own id", () => {
+    const dataset = makeDataset("Sales September", sales, ops);
+    const records = buildSyncRecords({
+      datasets: [dataset],
+      teamMembers: [],
+      rosterUpdatedAt: 0,
+    });
+
+    expect(records.find((r) => r.kind === "dataset")!.logicalId).toBe(`dataset:${dataset.id}`);
   });
 
   it("omits the roster entirely when there is nobody in it", () => {

@@ -80,7 +80,11 @@ Bundles the whole workspace, datasets and recipes and roster together, into a si
 
 Opt-in, off until you sign in from Settings, and encrypted so that the server cannot read what it stores. Sign in with Google or with an email and password; either way you end up at the same encrypted vault.
 
-What travels is the reusable half of a workspace: cleaning recipes, keyed by schema rather than by local dataset id, and the roster. So next month's export can land on a different machine and the monthly close still recognizes it, because the recipe arrived first. Datasets stay on the device that imported them.
+What travels: your datasets, your cleaning recipes keyed by schema rather than by local dataset id, and the roster. So next month's export can land on a different machine and the monthly close still recognizes it, because the recipe arrived first — and last month's file is already there.
+
+Datasets do not travel as records. A `sync_records` row is capped at 1 MB of ciphertext, which suits a recipe and not a workbook, so the rows are compressed, sealed, and put in a private Storage bucket as bytes, with a record carrying only the pointer and enough metadata to describe what is waiting. Compression happens before sealing, never after: parsed rows repeat every column name on every row, and sealed bytes do not compress at all. A recipe is keyed by schema because it belongs to every file of that shape; a dataset keeps the id of the device that imported it, because it is one particular import rather than a shape.
+
+This is the point where the local-first claim changes. It is no longer true that your data never leaves the machine. What is true is that nothing leaves until you sign in, and that what leaves was sealed here with a key the server has never held. The copy in the app says it in those terms rather than the older, stronger one.
 
 The mechanics, because the claim is only worth as much as the design behind it:
 
@@ -91,7 +95,7 @@ The mechanics, because the claim is only worth as much as the design behind it:
 - The engine compares server-assigned revisions rather than two machines' clocks. Timestamps break a genuine conflict and nothing else.
 - Trusting a device wraps the data key under a non-extractable key in IndexedDB, so the passphrase is asked once per device rather than once per visit.
 
-Excluded on purpose, and enforced by a test that fails the build if the list is ever quietly extended: datasets, database connection strings, the Gemini API key, export history, chat transcripts, and the audit log.
+Excluded on purpose, and enforced by a test that fails the build if the list is ever quietly extended: database connection strings, the Gemini API key, export history, chat transcripts, and the audit log. That test was narrowed rather than deleted when datasets started syncing — rows may leave the device now, but a cell value appearing inside a *record* still fails the build, because rows are only ever supposed to travel as sealed bytes in the bucket.
 
 Losing both your passphrase and your recovery codes means the synced records cannot be recovered. That is the price of the server not being able to read them.
 

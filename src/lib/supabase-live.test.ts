@@ -22,17 +22,55 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateDataKey, seal, unseal, blindId } from "./crypto";
-import { createSupabaseTransport, loadKeyRing, saveKeyRing, purgeRemoteWorkspace } from "./supabase-client";
+import {
+  createSupabaseTransport,
+  downloadDatasetBlob,
+  loadKeyRing,
+  saveKeyRing,
+  purgeRemoteWorkspace,
+  uploadDatasetBlob,
+} from "./supabase-client";
 import { emptyKeyRing, wrapDataKey, deriveSecrets } from "./crypto";
+import { openDataset, sealDataset } from "./dataset-blob";
+import type { Dataset } from "./types";
+
+/** A small but complete dataset, so the round trip proves the whole shape
+ *  survives Storage rather than just the rows. */
+function liveDataset(): Dataset {
+  return {
+    id: `live-${Math.floor(Math.random() * 1e9)}`,
+    name: "Live receivables.csv",
+    columns: ["client", "amount"],
+    rows: [
+      { client: "Adeyemi Holdings", amount: 412000 },
+      { client: "Okonkwo Ltd", amount: 98500 },
+    ],
+    profiles: [],
+    health: { overall: 91, completeness: 95, accuracy: 88, validity: 91, consistency: 90 },
+    diagnostics: [],
+    duplicateRows: 0,
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_500_000,
+    changelog: [],
+    truncated: false,
+  } as Dataset;
+}
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const live = Boolean(URL && ANON);
 
-/** `example.com` is reserved by RFC 2606, so these addresses can never collide
- *  with a real inbox. */
+/** `.invalid` is reserved by RFC 2606 and can never resolve, so these addresses
+ *  cannot collide with a real inbox.
+ *
+ *  Not `example.com`, which is reserved by the same RFC and was the obvious
+ *  choice until a live run met `email_address_invalid`: GoTrue rejects that one
+ *  domain by name, before any of the checks this file cares about. Nothing
+ *  offline could have caught that, since it is the provider's policy rather
+ *  than ours. If `.invalid` is ever blocked in turn, the failure will say so as
+ *  plainly as that one did. */
 function throwawayEmail(): string {
-  return `nexora-live-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  return `nexora-live-${Date.now()}-${Math.floor(Math.random() * 1e6)}@nexora-live.invalid`;
 }
 
 async function freshAccount(): Promise<{ client: SupabaseClient; userId: string; email: string }> {
@@ -147,16 +185,63 @@ describe.skipIf(!live)("Supabase, live", () => {
     expect(error).not.toBeNull();
   }, 30_000);
 
-  it("empties the account on request", async () => {
+  /* Datasets live in a Storage bucket rather than in `sync_records`, which means
+   * they are protected by an entirely separate set of policies. Those policies
+   * key off the first segment of the object path rather than a column, so they
+   * deserve their own proof rather than inheriting confidence from the table
+   * tests above. */
+  it("round-trips a dataset blob through Storage", async () => {
+    const dataKey = await generateDataKey();
+    const dataset = liveDataset();
+    const id = await blindId(dataKey, `dataset:${dataset.id}`);
+
+    await uploadDatasetBlob(alice.client, alice.userId, id, await sealDataset(dataKey, dataset));
+    const bytes = await downloadDatasetBlob(alice.client, alice.userId, id);
+
+    expect(bytes).not.toBeNull();
+    expect(await openDataset(dataKey, bytes!)).toEqual(dataset);
+  }, 30_000);
+
+  it("hides one account's dataset blob from another", async () => {
+    const bob = await freshAccount();
+    const dataKey = await generateDataKey();
+    const dataset = liveDataset();
+    const id = await blindId(dataKey, `dataset:${dataset.id}`);
+
+    await uploadDatasetBlob(alice.client, alice.userId, id, await sealDataset(dataKey, dataset));
+
+    // Bob naming Alice's folder and the exact object still gets nothing back.
+    expect(await downloadDatasetBlob(bob.client, alice.userId, id)).toBeNull();
+
+    // And he cannot see that it exists in the first place.
+    const { data } = await bob.client.storage.from("datasets").list(alice.userId);
+    expect(data ?? []).toEqual([]);
+  }, 30_000);
+
+  it("refuses a blob written into another account's folder", async () => {
+    const bob = await freshAccount();
+    const { error } = await bob.client.storage
+      .from("datasets")
+      .upload(`${alice.userId}/forged`, new Uint8Array([1, 2, 3]) as BlobPart);
+
+    expect(error).not.toBeNull();
+  }, 30_000);
+
+  it("empties the account on request, blobs included", async () => {
     const dataKey = await generateDataKey();
     const transport = createSupabaseTransport(alice.client, alice.userId);
     await transport.put(await blindId(dataKey, "recipe:purge-me"), await seal(dataKey, {}), 1_000);
+
+    const dataset = liveDataset();
+    const blobId = await blindId(dataKey, `dataset:${dataset.id}`);
+    await uploadDatasetBlob(alice.client, alice.userId, blobId, await sealDataset(dataKey, dataset));
 
     await purgeRemoteWorkspace(alice.client, alice.userId);
 
     expect(await transport.list()).toEqual([]);
     expect(await loadKeyRing(alice.client, alice.userId)).toBeNull();
-  });
+    expect(await downloadDatasetBlob(alice.client, alice.userId, blobId)).toBeNull();
+  }, 30_000);
 });
 
 describe.skipIf(live)("Supabase, live (skipped)", () => {
