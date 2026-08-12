@@ -9,6 +9,7 @@ import {
   GitBranch,
   Info,
   Layers,
+  Microscope,
   ShieldCheck,
   Sparkles,
   Stethoscope,
@@ -27,8 +28,13 @@ import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
 import { NextStep } from "@/components/layout/next-step";
 import { SectionNav, type SectionLink } from "@/components/section-nav";
 import { LiveWorkbench } from "@/components/doctor/live-workbench";
+import {
+  InvestigationPanel,
+  type InvestigationKind,
+} from "@/components/doctor/investigation-panel";
 import { buildRecipe, serializeRecipe, parseRecipe, previewCleanOp, type OpPreview } from "@/lib/recipe";
 import type { CleanOp, Dataset } from "@/lib/types";
+import { PAGE_CENTERED, PAGE_WIDE } from "@/components/layout/page-shell";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
@@ -87,6 +93,13 @@ export default function DatasetDoctorPage() {
 
   const [fixingId, setFixingId] = useState<string | null>(null);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
+  /* Which finding is open for investigation. Missing values and outliers are
+     the two that reward one: both are questions about the data rather than
+     defects in it, so both get a door out of the fix/ignore pair. */
+  const [investigating, setInvestigating] = useState<{
+    column: string;
+    kind: InvestigationKind;
+  } | null>(null);
   const [recipeError, setRecipeError] = useState<string | null>(null);
   const recipeInputRef = useRef<HTMLInputElement>(null);
 
@@ -125,7 +138,7 @@ export default function DatasetDoctorPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-8">
+      <div className={PAGE_CENTERED}>
         <p className="font-mono text-xs text-on-surface-variant">Initializing Nexora engine…</p>
       </div>
     );
@@ -254,7 +267,7 @@ export default function DatasetDoctorPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="mx-auto max-w-[1440px] select-none space-y-6 p-4 sm:p-6 md:p-8"
+      className={`${PAGE_WIDE} select-none space-y-6`}
     >
       {/* Header */}
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
@@ -532,6 +545,25 @@ export default function DatasetDoctorPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {/* Investigate comes first, and deliberately. Fixing a gap
+                        or capping an extreme destroys the evidence that would
+                        have explained it, so the order of these buttons is the
+                        order the work should happen in. */}
+                    {(diag.rule === "missing" || diag.rule === "outlier") && diag.column && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setInvestigating({
+                            column: diag.column!,
+                            kind: diag.rule === "missing" ? "missing" : "outlier",
+                          })
+                        }
+                        className="press flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-sky-400/25 bg-sky-400/10 px-3.5 py-2 text-[12px] font-medium text-sky-300 transition-colors hover:bg-sky-400/20"
+                      >
+                        <Microscope className="h-3.5 w-3.5" aria-hidden="true" />
+                        Investigate
+                      </button>
+                    )}
                     {diag.fix && (
                       <button
                         type="button"
@@ -685,6 +717,15 @@ export default function DatasetDoctorPage() {
       <NextStep note="The data is scored and fixed. Next, read what it says: KPIs, trends, and breakdowns." />
 
       {isJoinOpen && <JoinCreatorModal isOpen={isJoinOpen} onClose={() => setIsJoinOpen(false)} />}
+
+      {investigating && (
+        <InvestigationPanel
+          dataset={activeDataset}
+          column={investigating.column}
+          kind={investigating.kind}
+          onClose={() => setInvestigating(null)}
+        />
+      )}
     </motion.div>
   );
 }

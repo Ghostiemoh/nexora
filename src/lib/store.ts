@@ -35,6 +35,14 @@ interface NexoraState {
   pinnedCharts: Record<string, ChartConfig[]>;
   /** the first-run checklist stays hidden once someone closes it */
   onboardingDismissed: boolean;
+  /** A question handed from one page to the AI Analyst, waiting to be asked.
+   *
+   *  Dataset Doctor needs to send "why are 34% of these values missing?" to the
+   *  analyst along with a page change. A search param would work but forces a
+   *  Suspense boundary around the whole workspace, and would survive a reload
+   *  as a stale question. This is deliberately not persisted: a question makes
+   *  sense in the moment it is asked and nowhere else. */
+  pendingQuestion: string | null;
 
   // Platform actions
   notify: (level: AppNotification["level"], title: string, message: string) => void;
@@ -46,6 +54,10 @@ interface NexoraState {
   updateConnection: (id: string, patch: Partial<DbConnection>) => void;
   removeConnection: (id: string) => void;
   setGeminiApiKey: (key: string) => void;
+  /** queue a question for the AI Analyst, then navigate there */
+  askAnalyst: (question: string) => void;
+  /** take the queued question, clearing it so it is asked exactly once */
+  consumePendingQuestion: () => string | null;
   /** append a chat message; id and timestamp are stamped here */
   pushChatMessage: (datasetId: string, msg: Omit<ChatMessage, "id" | "at">) => void;
 
@@ -240,6 +252,7 @@ export const useNexora = create<NexoraState>()(
       exportHistory: [],
       connections: [],
       settings: { geminiApiKey: "" },
+      pendingQuestion: null,
       workflows: [],
       pinnedCharts: {},
       onboardingDismissed: false,
@@ -312,6 +325,14 @@ export const useNexora = create<NexoraState>()(
       },
 
       setGeminiApiKey: (key) => set({ settings: { geminiApiKey: key } }),
+
+      askAnalyst: (question) => set({ pendingQuestion: question }),
+
+      consumePendingQuestion: () => {
+        const question = get().pendingQuestion;
+        if (question !== null) set({ pendingQuestion: null });
+        return question;
+      },
 
       pushChatMessage: (datasetId, msg) => {
         const stamped: ChatMessage = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Table as TableIcon,
   BarChart3,
@@ -24,6 +24,7 @@ import { chatWithData } from "@/lib/ai";
 import { queryAxiom } from "@/lib/axiom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { PAGE_CENTERED } from "@/components/layout/page-shell";
 
 export default function WorkspacePage() {
   const mounted = useMounted();
@@ -84,9 +85,63 @@ export default function WorkspacePage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory, activeId]);
 
+  const handleSendChat = useCallback(
+    async (text: string) => {
+      if (!activeDataset || !text.trim() || aiThinking) return;
+      const question = text.trim();
+      setChatInput("");
+
+      // Without an API key, the local rule-based engine answers instantly.
+      if (!settings.geminiApiKey) {
+        addChatMessage(activeDataset.id, question);
+        return;
+      }
+
+      pushChatMessage(activeDataset.id, { role: "user", text: question });
+      setAiThinking(true);
+      try {
+        const recent = (chatHistory[activeDataset.id] || [])
+          .filter((m) => m.role !== "system")
+          .slice(-6)
+          .map((m) => ({ role: m.role, text: m.text }));
+        const answer = await chatWithData(settings.geminiApiKey, activeDataset, question, recent);
+        pushChatMessage(activeDataset.id, { role: "axiom", text: answer });
+      } catch (err) {
+        notify("error", "AI chat failed", err instanceof Error ? err.message : "Request failed");
+        const fallback = queryAxiom(question, activeDataset);
+        pushChatMessage(activeDataset.id, {
+          role: "axiom",
+          text: `(AI unavailable, so the local engine answered this) ${fallback.text}`,
+          table: fallback.table,
+          suggestions: fallback.suggestions,
+        });
+      } finally {
+        setAiThinking(false);
+      }
+    },
+    [activeDataset, aiThinking, settings.geminiApiKey, chatHistory, addChatMessage, pushChatMessage, notify]
+  );
+
+  /* A question handed over from Dataset Doctor arrives here and asks itself.
+   *
+   * This lives above the early returns so hook order stays stable whether or
+   * not a dataset is loaded, which is also why handleSendChat had to move up
+   * here rather than being reached through a ref. */
+  const consumePendingQuestion = useNexora((s) => s.consumePendingQuestion);
+
+  useEffect(() => {
+    if (!mounted || !activeDataset) return;
+    const question = consumePendingQuestion();
+    if (!question) return;
+    // Asking is an action against an external system, not state synchronisation,
+    // so it is deferred out of the effect body rather than run inline.
+    const id = setTimeout(() => void handleSendChat(question), 0);
+    return () => clearTimeout(id);
+  }, [mounted, activeDataset, consumePendingQuestion, handleSendChat]);
+
   if (!mounted) {
     return (
-      <div className="p-6 max-w-[1440px] mx-auto flex items-center justify-center min-h-[60vh]">
+      <div className={PAGE_CENTERED}>
         <div className="text-zinc-500 font-mono text-xs">
           Loading Workspace Environment...
         </div>
@@ -119,40 +174,6 @@ export default function WorkspacePage() {
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-    }
-  };
-
-  const handleSendChat = async (text: string) => {
-    if (!text.trim() || aiThinking) return;
-    const question = text.trim();
-    setChatInput("");
-
-    // Without an API key, the local rule-based engine answers instantly.
-    if (!settings.geminiApiKey) {
-      addChatMessage(activeDataset.id, question);
-      return;
-    }
-
-    pushChatMessage(activeDataset.id, { role: "user", text: question });
-    setAiThinking(true);
-    try {
-      const recent = (chatHistory[activeDataset.id] || [])
-        .filter((m) => m.role !== "system")
-        .slice(-6)
-        .map((m) => ({ role: m.role, text: m.text }));
-      const answer = await chatWithData(settings.geminiApiKey, activeDataset, question, recent);
-      pushChatMessage(activeDataset.id, { role: "axiom", text: answer });
-    } catch (err) {
-      notify("error", "AI chat failed", err instanceof Error ? err.message : "Request failed");
-      const fallback = queryAxiom(question, activeDataset);
-      pushChatMessage(activeDataset.id, {
-        role: "axiom",
-        text: `(AI unavailable, so the local engine answered this) ${fallback.text}`,
-        table: fallback.table,
-        suggestions: fallback.suggestions,
-      });
-    } finally {
-      setAiThinking(false);
     }
   };
 
