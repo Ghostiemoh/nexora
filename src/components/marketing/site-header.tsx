@@ -169,6 +169,15 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Sign in sits beside the primary action rather than inside it,
+              because an account is optional here: "Open workspace" is the
+              route most people want and it needs no account at all. */}
+          <Link
+            href="/sign-in"
+            className="press hidden rounded-full px-3 py-1.5 text-[13.5px] text-zinc-400 transition-colors hover:bg-white/5 hover:text-white sm:block"
+          >
+            Sign in
+          </Link>
           <Link
             href="/launch"
             className="pill h-9 bg-white px-4 text-[13.5px] font-semibold text-black"

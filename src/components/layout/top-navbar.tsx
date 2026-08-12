@@ -6,7 +6,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Bell, HardDrive, Menu, Plus, Search, Settings, X } from "lucide-react";
 import { useNexora } from "../../lib/store";
-import { AuthModal } from "./auth-modal";
 import { NexoraMark } from "./nexora-mark";
 import {
   NAV_ITEMS,
@@ -17,6 +16,7 @@ import {
   isNavActive,
 } from "../../lib/nav";
 import { searchTargets, SETTING_TARGETS, type SearchTarget } from "../../lib/search";
+import { Z_NAVBAR, Z_POPOVER } from "./layers";
 
 function levelDot(level: string): string {
   if (level === "error") return "bg-red-400";
@@ -44,7 +44,6 @@ export function TopNavbar() {
   const markNotificationsRead = useNexora((s) => s.markNotificationsRead);
   const clearNotifications = useNexora((s) => s.clearNotifications);
 
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBellOpen, setIsBellOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -112,7 +111,7 @@ export function TopNavbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 px-3 pt-3 sm:px-4" aria-label="Application navigation">
+    <nav className={`sticky top-0 ${Z_NAVBAR} px-3 pt-3 sm:px-4`} aria-label="Application navigation">
       <div className="glass-panel relative flex h-14 items-center justify-between rounded-xl px-3 sm:pl-4">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
@@ -168,7 +167,7 @@ export function TopNavbar() {
               <div
                 id="workspace-search-results"
                 role="listbox"
-                className="menu-panel absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-xl p-1"
+                className={`menu-panel absolute left-0 right-0 top-12 ${Z_POPOVER} overflow-hidden rounded-xl p-1`}
               >
                 {hits.length === 0 ? (
                   <p className="px-3 py-4 text-center text-xs text-on-surface-variant">
@@ -260,7 +259,7 @@ export function TopNavbar() {
               )}
             </button>
             {isBellOpen && (
-              <div className="menu-panel absolute right-0 top-12 z-50 max-h-96 w-80 overflow-y-auto rounded-xl p-2">
+              <div className={`menu-panel absolute right-0 top-12 ${Z_POPOVER} max-h-96 w-80 overflow-y-auto rounded-xl p-2`}>
                 <div className="flex items-center justify-between px-2 py-1.5">
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-white">Alerts</span>
                   {notifications.length > 0 && (
@@ -296,17 +295,18 @@ export function TopNavbar() {
           </Link>
           {/* No account exists, so no initials and no avatar stand in for one.
               The indicator says what is actually true: the workspace is this
-              browser. */}
-          <button
-            type="button"
-            onClick={() => setIsAuthOpen(true)}
-            title="This workspace is local to your browser"
-            className="press flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-white/[0.09] bg-white/[0.03] px-2.5 text-on-surface-variant hover:bg-white/[0.07] hover:text-on-surface sm:px-3"
+              browser. It used to open a modal explaining that; now it goes to
+              the account page, which explains the same thing and can also act
+              on it. */}
+          <Link
+            href="/sign-in"
+            title="This workspace is local to your browser. Sign in to sync it across devices."
+            className="press flex h-10 shrink-0 items-center gap-2 rounded-lg border border-white/[0.09] bg-white/[0.03] px-2.5 text-on-surface-variant hover:bg-white/[0.07] hover:text-on-surface sm:px-3"
           >
             <HardDrive className="h-[15px] w-[15px] shrink-0 text-primary" aria-hidden="true" />
             <span className="hidden text-[12.5px] font-medium lg:inline">Local Workspace</span>
             <span className="text-[12.5px] font-medium lg:hidden">Local</span>
-          </button>
+          </Link>
         </div>
 
         {isMobileMenuOpen && (
@@ -342,7 +342,6 @@ export function TopNavbar() {
           </div>
         )}
       </div>
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </nav>
   );
 }
