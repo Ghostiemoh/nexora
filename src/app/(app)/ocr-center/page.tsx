@@ -16,7 +16,8 @@ import * as XLSX from "xlsx";
 import { useMounted } from "@/lib/use-mounted";
 import { useNexora } from "@/lib/store";
 import { MAX_FILE_BYTES } from "@/lib/csv";
-import type { Row } from "@/lib/types";
+import { extractTables, type ExtractedTable } from "@/lib/table-extract";
+import { PAGE_WIDE } from "@/components/layout/page-shell";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
@@ -115,8 +116,12 @@ export default function OcrCenterPage() {
   const [ocrStatus, setOcrStatus] = useState("");
   const [ocrResultText, setOcrResultText] = useState("");
 
-  // Parsed Table state
-  const [parsedData, setParsedData] = useState<{ columns: string[]; rows: Row[] } | null>(null);
+  /* A page can hold more than one table, and treating the whole page as a
+     single grid is how a heading ends up as a column name. extractTables finds
+     each one separately; the analyst picks which to import. */
+  const [tables, setTables] = useState<ExtractedTable[]>([]);
+  const [selectedTable, setSelectedTable] = useState(0);
+  const parsedData = tables[selectedTable] ?? null;
   const [activeViewTab, setActiveViewTab] = useState<"text" | "table">("text");
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -173,7 +178,8 @@ export default function OcrCenterPage() {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImagePreviewUrl(isPdf ? null : URL.createObjectURL(file));
     setOcrResultText("");
-    setParsedData(null);
+    setTables([]);
+    setSelectedTable(0);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -276,14 +282,13 @@ export default function OcrCenterPage() {
       }
 
       setOcrResultText(text);
-      const parsed = parseTextToTable(text);
-      setParsedData(parsed);
+      const found = extractTables(text).tables;
+      setTables(found);
+      setSelectedTable(0);
 
-      if (parsed.columns.length > 1 && parsed.rows.length > 0) {
-        setActiveViewTab("table");
-      } else {
-        setActiveViewTab("text");
-      }
+      // Land on the grid when there is a real one to look at, and on the raw
+      // text when there is not, rather than showing an empty table.
+      setActiveViewTab(found.length > 0 ? "table" : "text");
     } catch (err) {
       console.error(err);
       setOcrStatus(fileKind === "pdf" ? "Could not read this PDF. Try again or use a screenshot." : "OCR Error occurred. Please try again.");
@@ -319,88 +324,16 @@ export default function OcrCenterPage() {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImagePreviewUrl(null);
     setOcrResultText("");
-    setParsedData(null);
-  };
-
-  // Raw text to CSV/Table Parser
-  const parseTextToTable = (text: string): { columns: string[]; rows: Row[] } => {
-    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-    if (lines.length === 0) return { columns: [], rows: [] };
-
-    // Delimiter matching
-    const delimiters = [
-      { name: "tab", regex: /\t/ },
-      { name: "pipe", regex: /\|/ },
-      { name: "comma", regex: /,/ },
-      { name: "semicolon", regex: /;/ },
-      { name: "spaces", regex: /\s{2,}/ }
-    ];
-
-    let bestDelimiter = delimiters[0];
-    let maxConsistentLines = 0;
-
-    delimiters.forEach(delim => {
-      let validLines = 0;
-      lines.forEach(line => {
-        const parts = line.split(delim.regex);
-        if (parts.length >= 2) {
-          validLines++;
-        }
-      });
-      if (validLines > maxConsistentLines) {
-        maxConsistentLines = validLines;
-        bestDelimiter = delim;
-      }
-    });
-
-    const splitter = maxConsistentLines > 0 ? bestDelimiter.regex : /\s+/;
-
-    const parsedRows = lines.map(line => {
-      return line.split(splitter).map(cell => cell.trim().replace(/^["']|["']$/g, "")).filter(c => c !== "");
-    }).filter(row => row.length > 0);
-
-    if (parsedRows.length === 0) return { columns: [], rows: [] };
-
-    const maxCols = Math.max(...parsedRows.map(row => row.length));
-
-    // Columns mapping
-    const columns: string[] = [];
-    const firstRow = parsedRows[0];
-    
-    for (let i = 0; i < maxCols; i++) {
-      const rawColName = firstRow[i] ? String(firstRow[i]).replace(/[^a-zA-Z0-9_]/g, "_") : `col_${i + 1}`;
-      let colName = rawColName;
-      let suffix = 1;
-      while (columns.includes(colName)) {
-        colName = `${rawColName}_${suffix}`;
-        suffix++;
-      }
-      columns.push(colName);
-    }
-
-    // Rows mapping
-    const rows = parsedRows.slice(1).map((rowParts) => {
-      const rowObj: Row = {};
-      columns.forEach((colName, colIdx) => {
-        const val = rowParts[colIdx] !== undefined ? rowParts[colIdx] : null;
-        if (val !== null && val !== "" && !isNaN(Number(val))) {
-          rowObj[colName] = Number(val);
-        } else if (val === "true" || val === "TRUE") {
-          rowObj[colName] = true;
-        } else if (val === "false" || val === "FALSE") {
-          rowObj[colName] = false;
-        } else {
-          rowObj[colName] = val;
-        }
-      });
-      return rowObj;
-    });
-
-    return { columns, rows };
+    setTables([]);
+    setSelectedTable(0);
   };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-5xl items-center p-5 sm:p-8 select-none">
+    /* Previously this card was vertically centred in the viewport, so the whole
+       page slid upward as soon as extraction produced output and slid back on
+       clear. Content that moves while you are reading it is worse than content
+       that starts lower down. */
+    <div className={`${PAGE_WIDE} select-none`}>
       <section className="nexora-card w-full overflow-hidden p-6 sm:p-8 space-y-6 relative">
         <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -579,6 +512,78 @@ export default function OcrCenterPage() {
                 )}
               </div>
 
+              {/* What the extractor believes it found. Importing a table you
+                  have not looked at is how a misread column reaches a
+                  dashboard, so the structure is stated before the button that
+                  sends it onward. */}
+              {tables.length > 0 && parsedData && (
+                <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 space-y-2.5">
+                  {tables.length > 1 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wider text-on-surface-variant">
+                        {tables.length} tables found
+                      </span>
+                      {tables.map((t, i) => (
+                        <button
+                          key={`${t.startLine}-${i}`}
+                          type="button"
+                          onClick={() => setSelectedTable(i)}
+                          aria-pressed={i === selectedTable}
+                          className={`press cursor-pointer rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                            i === selectedTable
+                              ? "border-primary/40 bg-primary/15 text-primary"
+                              : "border-white/10 text-on-surface-variant hover:text-on-surface"
+                          }`}
+                        >
+                          Table {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant">
+                    <span>
+                      <span className="font-semibold text-on-surface">{parsedData.rows.length}</span>{" "}
+                      rows ×{" "}
+                      <span className="font-semibold text-on-surface">
+                        {parsedData.columns.length}
+                      </span>{" "}
+                      columns
+                    </span>
+                    <span>
+                      {parsedData.columnTypes.filter((t) => t === "number").length} numeric
+                    </span>
+                    <span className={parsedData.hasHeader ? "text-emerald-400" : "text-amber-300"}>
+                      {parsedData.hasHeader ? "header detected" : "no header, names generated"}
+                    </span>
+                    <span
+                      className={
+                        parsedData.confidence >= 0.85
+                          ? "text-emerald-400"
+                          : parsedData.confidence >= 0.6
+                            ? "text-amber-300"
+                            : "text-red-400"
+                      }
+                    >
+                      {Math.round(parsedData.confidence * 100)}% structure confidence
+                    </span>
+                    {parsedData.repeatedHeadersDropped > 0 && (
+                      <span>
+                        {parsedData.repeatedHeadersDropped} repeated header row(s) merged
+                      </span>
+                    )}
+                  </div>
+
+                  {parsedData.confidence < 0.85 && (
+                    <p className="text-[11px] leading-relaxed text-on-surface-variant/80">
+                      Some rows did not line up with the header. Check the grid, and if a column is
+                      shifted, correct the spacing in Extracted Text and it will re-detect as you
+                      type.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Console screen content */}
               <div className="flex-1 bg-black/40 border border-white/5 rounded-2xl overflow-hidden min-h-[300px] flex flex-col relative shadow-inner">
                 {!ocrResultText && !ocrRunning ? (
@@ -594,8 +599,12 @@ export default function OcrCenterPage() {
                   <textarea
                     value={ocrResultText}
                     onChange={(e) => {
+                      // Correcting an OCR slip in the text re-detects structure
+                      // live, so fixing a broken column separator is visible in
+                      // the grid straight away.
                       setOcrResultText(e.target.value);
-                      setParsedData(parseTextToTable(e.target.value));
+                      setTables(extractTables(e.target.value).tables);
+                      setSelectedTable(0);
                     }}
                     className="flex-1 bg-transparent p-4 text-emerald-400 font-mono text-xs placeholder:text-zinc-700 focus:outline-none resize-none leading-relaxed h-full w-full"
                     spellCheck="false"
