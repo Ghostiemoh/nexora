@@ -24,6 +24,7 @@ import type { DashboardLayout } from "@/lib/dashboard";
 import { useNexora } from "@/lib/store";
 import { DASHBOARD_FORMATS, historyKind, type ExportFormat } from "@/lib/export-formats";
 import { downloadBlob, runExport, type ChartCapture } from "@/lib/export-run";
+import { MODAL_BACKDROP } from "@/components/layout/layers";
 
 export interface DashboardExportModalProps {
   isOpen: boolean;
@@ -134,7 +135,7 @@ export function DashboardExportModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      className={MODAL_BACKDROP}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) onClose();

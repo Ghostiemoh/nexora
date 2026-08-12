@@ -6,6 +6,7 @@ import { useMounted } from "@/lib/use-mounted";
 import { useNexora } from "@/lib/store";
 import { WorkspaceBundleCard } from "@/components/workspace-bundle";
 import { motion, AnimatePresence } from "framer-motion";
+import { MODAL_BACKDROP } from "@/components/layout/layers";
 
 export default function TeamPage() {
   const mounted = useMounted();
@@ -124,7 +125,7 @@ export default function TeamPage() {
       {/* Invite Member Modal */}
       <AnimatePresence>
         {isInviteOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
+          <div className={MODAL_BACKDROP}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { X, FileSpreadsheet, Check } from "lucide-react";
+import { MODAL_BACKDROP } from "./layers";
 
 interface SheetSelectorModalProps {
   filename: string;
@@ -24,7 +25,7 @@ export function SheetSelectorModal({ filename, sheets, onSelect, onClose }: Shee
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={MODAL_BACKDROP} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-labelledby="sheet-selector-title" className="bg-surface-container-low border border-outline-variant/60 rounded-xl w-full max-w-md flex flex-col overflow-hidden shadow-2xl relative">
         
         {/* Header */}

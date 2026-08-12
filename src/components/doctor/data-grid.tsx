@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CellValue, Dataset, Row } from "@/lib/types";
 import { cellRef, columnLetter, type CellIssue, type CellIssueRule } from "@/lib/cell-issues";
 import { changeKey, type OpDiff } from "@/lib/recipe";
+import { Z_TABLE_HEADER } from "@/components/layout/layers";
 
 const PAGE_SIZE = 25;
 
@@ -124,7 +125,7 @@ export function DataGrid({ dataset, issues = [], diff, focusRow, onSelectCell }:
             {/* Column letters, so a reference like C42 is something you can
                 actually find by eye. */}
             <tr className="bg-surface-container text-on-surface-variant/60">
-              <th className="sticky left-0 z-30 w-12 bg-surface-container px-2 py-1 text-[10px] font-normal">
+              <th className={`sticky left-0 ${Z_TABLE_HEADER} w-12 bg-surface-container px-2 py-1 text-[10px] font-normal`}>
                 <span className="sr-only">Row</span>
               </th>
               {columns.map((column, i) => (
@@ -139,7 +140,7 @@ export function DataGrid({ dataset, issues = [], diff, focusRow, onSelectCell }:
               ))}
             </tr>
             <tr className="border-b border-white/[0.08] bg-surface-container-low">
-              <th className="sticky left-0 z-30 bg-surface-container-low px-2 py-2 text-[10px] font-medium text-on-surface-variant">
+              <th className={`sticky left-0 ${Z_TABLE_HEADER} bg-surface-container-low px-2 py-2 text-[10px] font-medium text-on-surface-variant`}>
                 #
               </th>
               {columns.map((column) => {

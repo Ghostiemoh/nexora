@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Z_SECTION_NAV } from "@/components/layout/layers";
 
 export interface SectionLink {
   id: string;
@@ -39,7 +40,7 @@ export function SectionNav({ sections }: { sections: SectionLink[] }) {
       aria-label="Sections on this page"
       /* Opaque, not translucent: a sticky bar that content can be read through
          looks like the section beneath it is overlapping. */
-      className="no-print sticky top-2 z-30 -mx-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-surface-container px-1.5 py-1.5 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.9)]"
+      className={`no-print sticky top-2 ${Z_SECTION_NAV} -mx-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-surface-container px-1.5 py-1.5 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.9)]`}
     >
       <ul className="flex w-max items-center gap-1">
         {sections.map((section) => {

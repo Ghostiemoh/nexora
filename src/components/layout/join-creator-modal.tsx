@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, GitBranch, ArrowRight, Info, AlertTriangle } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useRouter } from "next/navigation";
+import { MODAL_BACKDROP } from "./layers";
 
 interface JoinCreatorModalProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ export function JoinCreatorModal({ isOpen, onClose }: JoinCreatorModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div className={MODAL_BACKDROP}>
       <div className="w-full max-w-2xl bg-surface border border-outline-variant rounded-xl flex flex-col max-h-[90vh] shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/60 bg-surface-container-low shrink-0">

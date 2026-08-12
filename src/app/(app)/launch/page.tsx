@@ -18,8 +18,10 @@ import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { PeriodCloseCard } from "@/components/period-close";
+import { SyncInvite } from "@/components/sync-invite";
 import { fileTypeOf, formatStamp, relativeTime, describeDataset, wasModified } from "@/lib/dataset-meta";
 import type { Dataset } from "@/lib/types";
+import { PAGE_CENTERED, PAGE_WIDE } from "@/components/layout/page-shell";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
@@ -182,7 +184,7 @@ export default function LaunchPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[1100px] items-center justify-center p-8">
+      <div className={PAGE_CENTERED}>
         <p className="font-mono text-xs text-on-surface-variant">Reading local workspace…</p>
       </div>
     );
@@ -201,7 +203,7 @@ export default function LaunchPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: EASE_OUT }}
-      className="mx-auto max-w-[1100px] space-y-7 p-4 sm:p-6 md:p-8"
+      className={`${PAGE_WIDE} space-y-7`}
     >
       <header className="space-y-2">
         <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-[11px] text-on-surface-variant">
@@ -216,6 +218,10 @@ export default function LaunchPage() {
           start a fresh analysis. Nothing opens until you choose.
         </p>
       </header>
+
+      {/* Offered once, before any of the paths below, and skippable. Renders
+          nothing for a reader who has signed in or already declined. */}
+      <SyncInvite />
 
       {/* Surfaced before the two paths: when this month's file is a repeat, the
           close is the shortest route through the whole workspace. */}
@@ -256,7 +262,8 @@ export default function LaunchPage() {
           </div>
           <h2 className="text-[15px] font-semibold text-white">Upload a new dataset</h2>
           <p className="mt-1 text-[12.5px] leading-relaxed text-on-surface-variant">
-            CSV, TSV, JSON, or an Excel workbook. Parsed in this tab, never uploaded anywhere.
+            CSV, TSV, JSON, or an Excel workbook. Parsed in this tab, and uploaded nowhere unless
+            you sign in to sync.
           </p>
         </button>
       </div>

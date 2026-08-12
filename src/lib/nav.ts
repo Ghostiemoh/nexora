@@ -46,6 +46,16 @@ export interface NavItem {
   step?: 1 | 2 | 3 | 4;
   /** small dot in the sidebar for AI-backed routes */
   badge?: boolean;
+  /** Built, routable, and deliberately absent from the navigation.
+   *
+   *  A tool earns a place in the sidebar by answering "what problem does this
+   *  solve for an analyst?" The four routes carrying this flag cannot yet:
+   *  Team and Support Desk imply multi-user infrastructure a local-first app
+   *  does not have, Workflows is a second name for the recipe system already
+   *  inside Dataset Doctor, and History is a log viewer rather than a way to
+   *  reproduce a result. Hiding rather than deleting keeps the work available
+   *  and makes bringing one back a one-line change once it has a real use. */
+  hidden?: true;
 }
 
 /** The site's front door. "Home" has to mean this, because it is what everyone
@@ -133,6 +143,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Workflow,
     group: "tools",
     description: "Saved analysis templates you can replay on any new dataset.",
+    hidden: true,
   },
   {
     href: "/history",
@@ -140,6 +151,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: History,
     group: "workspace",
     description: "Every import, fix, query, and export, in order.",
+    hidden: true,
   },
   {
     href: "/team",
@@ -147,6 +159,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     group: "workspace",
     description: "People and engines attached to this workspace.",
+    hidden: true,
   },
   {
     href: "/support",
@@ -154,6 +167,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: HelpCircle,
     group: "workspace",
     description: "Open tickets and known issues.",
+    hidden: true,
   },
   {
     href: "/settings",
@@ -164,7 +178,15 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const byGroup = (group: NavGroup) => NAV_ITEMS.filter((i) => i.group === group);
+/* Hidden routes stay in NAV_ITEMS on purpose. findNavItem and buildBreadcrumbs
+ * read that list, so a hidden page reached by URL still knows its own name and
+ * still has a way back. Only the rendered navigation filters them out. */
+const byGroup = (group: NavGroup) =>
+  NAV_ITEMS.filter((i) => i.group === group && !i.hidden);
+
+/** Routable but off the sidebar. Exported so a test can assert the set is
+ *  deliberate rather than accidental. */
+export const HIDDEN_NAV = NAV_ITEMS.filter((i) => i.hidden);
 
 /** The dataset picker. */
 export const START_NAV = byGroup("start");
@@ -174,13 +196,14 @@ export const TOOLS_NAV = byGroup("tools");
 export const WORKSPACE_NAV = byGroup("workspace");
 export const UTILITY_NAV = byGroup("utility");
 
-/** Sidebar sections, in render order. */
+/** Sidebar sections, in render order. A section whose items are all hidden is
+ *  dropped rather than rendered as a heading with nothing under it. */
 export const NAV_SECTIONS: { title: string | null; items: NavItem[] }[] = [
   { title: null, items: START_NAV },
   { title: "Analysis", items: WORKFLOW_NAV },
   { title: "Tools", items: TOOLS_NAV },
   { title: "Workspace", items: WORKSPACE_NAV },
-];
+].filter((s) => s.items.length > 0);
 
 /** The nav entry a pathname belongs to. Nested routes resolve to their parent
  *  section, so /reports/anything still highlights Reports. */

@@ -23,6 +23,7 @@ import { columnRoles, type Aggregation } from "@/lib/chart-recommend";
 import { triggerDownload } from "@/lib/export-docx";
 import { valueCounts } from "@/lib/auto-dashboard";
 import type { Row } from "@/lib/types";
+import { PAGE_CENTERED, PAGE_WIDE } from "@/components/layout/page-shell";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 const DRILL_CAP = 200;
@@ -90,7 +91,7 @@ export default function PivotPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-8">
+      <div className={PAGE_CENTERED}>
         <p className="font-mono text-xs text-on-surface-variant">Loading the pivot engine…</p>
       </div>
     );
@@ -182,7 +183,7 @@ export default function PivotPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="mx-auto max-w-[1440px] space-y-6 p-4 sm:p-6 md:p-8"
+      className={`${PAGE_WIDE} space-y-6`}
     >
       {/* Header */}
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">

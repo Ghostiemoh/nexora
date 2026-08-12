@@ -25,6 +25,7 @@ import { analyzeCached } from "@/lib/insights";
 import { buildReport, reportToMarkdown, reportToHtml, type Report } from "@/lib/report";
 import { downloadDocx, triggerDownload } from "@/lib/export-docx";
 import { downloadCsv, toCsv } from "@/lib/csv";
+import { PAGE_CENTERED, PAGE_NARROW } from "@/components/layout/page-shell";
 
 type Busy = "md" | "docx" | "csv" | null;
 
@@ -72,7 +73,7 @@ export default function ReportsPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-6">
+      <div className={PAGE_CENTERED}>
         <div className="font-mono text-xs text-on-surface-variant">Compiling report engine…</div>
       </div>
     );
@@ -160,7 +161,7 @@ export default function ReportsPage() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 20 }}
-      className="mx-auto max-w-4xl space-y-7 p-4 sm:p-6 md:p-8"
+      className={`${PAGE_NARROW} space-y-7`}
     >
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 border-b border-white/[0.06] pb-6 md:flex-row md:items-end">

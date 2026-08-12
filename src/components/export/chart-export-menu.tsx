@@ -26,6 +26,7 @@ import type { DashboardLayout } from "@/lib/dashboard";
 import { useNexora } from "@/lib/store";
 import { CHART_FORMATS, historyKind, type ExportFormat } from "@/lib/export-formats";
 import { downloadBlob, runExport } from "@/lib/export-run";
+import { Z_POPOVER } from "@/components/layout/layers";
 
 const FORMAT_ICON: Record<ExportFormat, LucideIcon> = {
   png: FileImage,
@@ -155,7 +156,7 @@ export function ChartExportMenu({
       {open && (
         <div
           role="menu"
-          className="menu-panel absolute right-0 top-10 z-50 w-[264px] overflow-hidden rounded-xl p-1"
+          className={`menu-panel absolute right-0 top-10 ${Z_POPOVER} w-[264px] overflow-hidden rounded-xl p-1`}
         >
           <p className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant/70">
             Save a copy

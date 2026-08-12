@@ -31,6 +31,7 @@ import {
   type WorkflowTemplate,
 } from "@/lib/workflow";
 import { triggerDownload } from "@/lib/export-docx";
+import { PAGE_CENTERED, PAGE_WIDE } from "@/components/layout/page-shell";
 
 export default function WorkflowsPage() {
   const mounted = useMounted();
@@ -56,7 +57,7 @@ export default function WorkflowsPage() {
 
   if (!mounted) {
     return (
-      <div className="mx-auto flex min-h-[60vh] max-w-[1440px] items-center justify-center p-6">
+      <div className={PAGE_CENTERED}>
         <div className="font-mono text-xs text-on-surface-variant">Loading workflows…</div>
       </div>
     );
@@ -99,7 +100,7 @@ export default function WorkflowsPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-      className="mx-auto max-w-[1100px] space-y-7 p-4 sm:p-6 md:p-8"
+      className={`${PAGE_WIDE} space-y-7`}
     >
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>

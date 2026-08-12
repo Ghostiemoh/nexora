@@ -18,6 +18,7 @@ import { executeSql, type SqlResult } from "@/lib/sql-engine";
 import { generateSqlFromEnglish, optimizeOrFixQuery } from "@/lib/ai";
 import { WorkspaceEmpty } from "@/components/layout/workspace-empty";
 import { motion } from "framer-motion";
+import { PAGE_CENTERED } from "@/components/layout/page-shell";
 
 export default function SqlLabPage() {
   const mounted = useMounted();
@@ -54,7 +55,7 @@ export default function SqlLabPage() {
 
   if (!mounted) {
     return (
-      <div className="p-6 max-w-[1440px] mx-auto flex items-center justify-center min-h-[60vh]">
+      <div className={PAGE_CENTERED}>
         <div className="text-zinc-500 font-mono text-xs animate-pulse">
           Loading SQL Sandbox Environment...
         </div>

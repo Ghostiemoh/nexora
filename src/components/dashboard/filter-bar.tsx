@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, FilterX, SlidersHorizontal } from "lucide-react";
 import type { DashboardFilter } from "@/lib/dashboard";
+import { Z_POPOVER } from "@/components/layout/layers";
 
 export interface FilterBarProps {
   filters: DashboardFilter[];
@@ -63,7 +64,7 @@ export function FilterBar({ filters, selections, onChange, visible, total }: Fil
             </button>
 
             {open && (
-              <div className="menu-panel absolute left-0 top-11 z-40 max-h-64 w-56 overflow-y-auto rounded-xl p-1.5">
+              <div className={`menu-panel absolute left-0 top-11 ${Z_POPOVER} max-h-64 w-56 overflow-y-auto rounded-xl p-1.5`}>
                 {filter.values.map((value) => {
                   const checked = chosen.includes(value);
                   return (

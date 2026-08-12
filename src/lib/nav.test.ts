@@ -3,6 +3,7 @@ import {
   NAV_ITEMS,
   NAV_SECTIONS,
   WORKFLOW_NAV,
+  HIDDEN_NAV,
   HOME_HREF,
   SITE_HREF,
   findNavItem,
@@ -42,11 +43,57 @@ describe("nav map", () => {
     expect(findNavItem("/dashboard")?.label).toBe("Dashboard");
   });
 
-  it("puts every item in exactly one rendered section, plus Settings", () => {
+  it("puts every visible item in exactly one rendered section, plus Settings", () => {
     const rendered = NAV_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
     expect(new Set(rendered).size).toBe(rendered.length);
-    const missing = NAV_ITEMS.filter((i) => !rendered.includes(i.href)).map((i) => i.href);
+    const missing = NAV_ITEMS.filter((i) => !i.hidden && !rendered.includes(i.href)).map(
+      (i) => i.href
+    );
     expect(missing).toEqual(["/settings"]);
+  });
+});
+
+/* Item 10 of the product review: a smaller set of tools that each answer
+ * "what problem does this solve for an analyst?" beats a large set that does
+ * not. These four are hidden rather than deleted, so the decision stays cheap
+ * to reverse. */
+describe("hidden tools", () => {
+  it("keeps exactly the four routes that have no clear analytical use", () => {
+    expect(HIDDEN_NAV.map((i) => i.href).sort()).toEqual([
+      "/history",
+      "/support",
+      "/team",
+      "/workflows",
+    ]);
+  });
+
+  it("renders none of them in the sidebar", () => {
+    const rendered = NAV_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+    for (const item of HIDDEN_NAV) {
+      expect(rendered, `${item.href} is hidden but still rendered`).not.toContain(item.href);
+    }
+  });
+
+  it("never renders a section heading with nothing under it", () => {
+    for (const section of NAV_SECTIONS) {
+      expect(section.items.length, `empty section: ${section.title}`).toBeGreaterThan(0);
+    }
+  });
+
+  /* Hiding a route must not strand anyone who arrives by URL or bookmark. */
+  it("still names a hidden route and gives it a way home", () => {
+    for (const item of HIDDEN_NAV) {
+      expect(findNavItem(item.href)?.label).toBe(item.label);
+      expect(buildBreadcrumbs(item.href)).toEqual([
+        { label: "Home", href: SITE_HREF },
+        { label: item.label },
+      ]);
+    }
+  });
+
+  it("leaves the analysis workflow itself fully visible", () => {
+    expect(WORKFLOW_NAV.every((i) => !i.hidden)).toBe(true);
+    expect(WORKFLOW_NAV).toHaveLength(4);
   });
 });
 
