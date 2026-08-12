@@ -21,9 +21,43 @@ export default function PrivacyPage() {
           Nexora does not measure what you do inside the workspace.
         </p>
         <p>
-          If you never sign in, that is the whole story: your files never leave the browser, because
-          there is nowhere for them to go.
+          Nexora runs no server of its own for the work you do with files. Opening a CSV, profiling
+          it, cleaning it, pivoting it, querying it in SQL Lab, and charting it all happen inside
+          this browser tab, so those files are never uploaded anywhere.
         </p>
+      </Section>
+
+      <Section title="The three times data does leave">
+        <p>
+          Saying &ldquo;nothing ever leaves your device&rdquo; would be simpler, and it would be
+          wrong. Three features send data out. All three are things you switch on yourself, and none
+          of them run in the background.
+        </p>
+        <Bullets
+          items={[
+            <>
+              <strong className="text-white">Database connections.</strong> A browser cannot open a
+              PostgreSQL or MySQL socket, so Nexora&apos;s API does it. When you test a connection or
+              import a table, your connection string and your SQL are sent to that API, and the rows
+              come back through it. Nexora does not store either one, but they are held in server
+              memory for the length of the request, and request logs at our hosting provider are
+              outside our control. Use a read-only database user.
+            </>,
+            <>
+              <strong className="text-white">The AI analyst.</strong> If you add your own Google
+              Gemini key in Settings, questions go from your browser straight to Google, never
+              through us. What travels with them is your column names and statistics, the most
+              common values in each column, and the first five rows of the dataset. Those are real
+              values from your data. Google&apos;s API terms govern what happens to them, and free
+              API tiers in particular may retain prompts. Without a key, the analyst falls back to
+              the rule-based engine that runs locally and sends nothing.
+            </>,
+            <>
+              <strong className="text-white">Sync.</strong> Opt-in, off until you sign in, and
+              encrypted on this device before anything is sent. The section below is the detail.
+            </>,
+          ]}
+        />
       </Section>
 
       <Section title="If you turn on sync">
@@ -34,17 +68,25 @@ export default function PrivacyPage() {
         <Bullets
           items={[
             <>
-              <strong className="text-white">What is stored, and in what form.</strong> Your cleaning
-              recipes and workspace roster, each encrypted on your device with AES-256-GCM before it
-              is sent. The server receives ciphertext, a row identifier that is an HMAC rather than a
-              name, and a timestamp. It never receives a column name, a cell value, or the name of the
-              record a row belongs to.
+              <strong className="text-white">What is stored, and in what form.</strong> Three things
+              and no others: your datasets, your cleaning recipes, and your workspace roster. Each is
+              encrypted on your device with AES-256-GCM before it is sent. The server receives
+              ciphertext, a row identifier that is an HMAC rather than a name, and a timestamp. It
+              never receives a column name, a cell value, or the name of the record a row belongs to.
             </>,
             <>
-              <strong className="text-white">What is never sent.</strong> Your datasets. Your database
+              <strong className="text-white">What sync never carries.</strong> Your database
               connection strings. Your Gemini API key. Your export history, AI chat transcripts, and
-              audit log. These have no code path to the server, and a test in the repository fails the
-              build if one is ever added.
+              audit log. None of these has a code path into the sync payload, and a test in the
+              repository fails the build if one is ever added. Read that as a statement about sync
+              specifically: connection strings still reach the query API when you import a table,
+              as described above.
+            </>,
+            <>
+              <strong className="text-white">What is sent, once you sign in.</strong> Your datasets,
+              compressed and sealed on this device before they leave it, stored as bytes the server
+              has no key to open. Signing in is the only thing that starts this. Until then no
+              dataset has anywhere to go.
             </>,
             <>
               <strong className="text-white">Why we cannot read any of it.</strong> The key that

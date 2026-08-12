@@ -47,7 +47,11 @@ export default function SupportPage() {
     },
     {
       q: "How is my dataset stored or secured?",
-      a: "Nexora runs local-first. Datasets, raw rows, and AI analyst conversations are stored in your browser's secure sandboxed localStorage and RAM. No analytical data is uploaded to outside servers."
+      a: "Datasets, raw rows, and AI analyst conversations live in this browser's localStorage and RAM, and files you open are parsed here rather than uploaded. Three things do send data out, and each one is opt-in. Database imports send your connection string and query to Nexora's API, because a server has to open the socket. The AI analyst sends your column stats and the first few rows to Google Gemini using your own API key. Sync, if you turn it on, uploads records that were encrypted on this device first."
+    },
+    {
+      q: "What exactly does the AI analyst send to Google?",
+      a: "Column names and types, per-column statistics such as min, max, mean and missing counts, the four most common values in each column, and the first five rows of the dataset verbatim. It does not send the whole file. Those samples are real values from your data, so treat the AI analyst as you would any external service: if a column holds something you cannot share, clean or drop it before asking. Requests go straight from your browser to Google with your own key, so Nexora never sees them, and Google's API terms govern retention, not ours."
     }
   ];
 

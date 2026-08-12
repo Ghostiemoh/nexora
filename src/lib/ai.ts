@@ -1,11 +1,17 @@
-/* Gemini-backed AI features. The user's API key lives in their browser
- * (Settings → AI); requests go directly from the browser to Google's API.
- * Only the dataset SCHEMA and a few sample rows are ever sent, never the
- * full dataset. Every feature degrades gracefully when no key is set. */
+/* Gemini-backed AI features. The user's own API key lives in their browser
+ * (Settings → AI) and requests go straight from the browser to Google. No
+ * Nexora server sits in the middle, so we never see the key or the payload.
+ *
+ * What Google receives is NOT just a schema. buildSchemaContext sends real
+ * values from the file: the first few rows verbatim, plus the most common
+ * values and the min/max/mean of every column. Anything written in the UI
+ * about AI and privacy has to say that plainly. See PRIVACY.md.
+ *
+ * Every feature degrades to the local rule-based analyst when no key is set. */
 
 import type { Dataset } from "./types";
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 interface GeminiResponse {
@@ -14,9 +20,11 @@ interface GeminiResponse {
 }
 
 export async function callGemini(apiKey: string, prompt: string, system?: string): Promise<string> {
-  const res = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`, {
+  // The key goes in a header, never the query string. A URL-borne key ends up
+  // in browser history, Referer headers, and every proxy log on the path.
+  const res = await fetch(GEMINI_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),

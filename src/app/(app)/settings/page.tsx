@@ -5,6 +5,7 @@ import { Database, HardDrive, Monitor, ShieldCheck, Trash2, Sparkles } from "luc
 import { useMounted } from "@/lib/use-mounted";
 import { useNexora } from "@/lib/store";
 import { AccountPanel } from "@/components/account-panel";
+import { PAGE_NARROW } from "@/components/layout/page-shell";
 
 export default function SettingsPage() {
   const mounted = useMounted();
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-5 sm:p-8">
+    <div className={`${PAGE_NARROW} space-y-8`}>
       <header className="max-w-2xl space-y-2">
         <p className="text-label text-primary">Workspace controls</p>
         <h1 className="text-3xl font-semibold tracking-tight text-on-surface">Local, clear, and in your control.</h1>
@@ -39,7 +40,7 @@ export default function SettingsPage() {
 
       <section className="nexora-card grid gap-px overflow-hidden sm:grid-cols-3" aria-label="Local workspace status">
         {[
-          { icon: ShieldCheck, label: "Processing", value: "This browser", note: "Files stay on this device." },
+          { icon: ShieldCheck, label: "Processing", value: "This browser", note: "Analysis runs here. Sync sends sealed copies." },
           {
             icon: Database,
             label: "External databases",
@@ -64,11 +65,25 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
           Add a Google Gemini API key and you can chat with your data in plain English, turn a
-          question into SQL, and get broken queries rewritten. The key is stored only in this
-          browser. Requests carry your dataset&apos;s{" "}
-          <span className="text-on-surface">schema and five sample rows</span>, while the data itself
-          stays here.
+          question into SQL, and get broken queries rewritten. Requests go from this browser
+          straight to Google, so they never touch a Nexora server, and the key is saved only here.
         </p>
+        {/* Being exact matters more than sounding reassuring. The old copy said
+            "schema and five sample rows, while the data itself stays here",
+            which contradicts itself: those rows are the data. */}
+        <div className="max-w-2xl rounded-lg border border-white/10 bg-black/20 p-3.5">
+          <p className="text-[11px] font-medium text-on-surface">What Google receives per question</p>
+          <ul className="mt-2 space-y-1 text-[11px] leading-5 text-on-surface-variant">
+            <li>Column names, types, and stats such as min, max, mean, and missing counts.</li>
+            <li>The four most common values in each column.</li>
+            <li>The first five rows of the dataset, exactly as they appear.</li>
+          </ul>
+          <p className="mt-2 text-[11px] leading-5 text-on-surface-variant">
+            The rest of the file is never sent, but those samples are real values. If a column holds
+            something you cannot share, drop it before you ask. Retention is governed by your
+            Google API terms.
+          </p>
+        </div>
         <div className="flex gap-2 max-w-xl">
           <input
             type="password"

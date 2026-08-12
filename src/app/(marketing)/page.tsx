@@ -122,7 +122,8 @@ export default function SleekLanding() {
             className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-on-surface-variant md:text-xl"
           >
             Clean, analyze, query, and report from one calm workspace. An entire data team in your
-            browser, and nothing ever leaves your machine.
+            browser. Your files are parsed on this machine rather than uploaded, and anything you
+            choose to sync is sealed here first with a key we have never held.
           </motion.p>
 
           <motion.div

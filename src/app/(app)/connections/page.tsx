@@ -10,12 +10,14 @@ import {
   CheckCircle2,
   AlertCircle,
   DownloadCloud,
+  ShieldAlert,
 } from "lucide-react";
 import { useNexora } from "@/lib/store";
 import { useMounted } from "@/lib/use-mounted";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import type { DbConnection } from "@/lib/types";
+import { PAGE_NARROW } from "@/components/layout/page-shell";
 
 interface TestResponse {
   ok?: boolean;
@@ -116,14 +118,14 @@ export default function ConnectionsPage() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="p-6 md:p-8 max-w-4xl mx-auto space-y-6"
+      className={`${PAGE_NARROW} space-y-6`}
     >
       <div className="flex justify-between items-end gap-4 border-b border-white/5 pb-5">
         <div>
           <h1 className="text-2xl font-semibold text-white tracking-tight mb-1">Data Sources</h1>
           <p className="text-sm text-on-surface-variant">
-            Connect PostgreSQL and MySQL databases and pull tables straight into the sandbox. Queries
-            run read-only through Nexora&apos;s API; connection strings stay in this browser.
+            Connect PostgreSQL and MySQL databases and pull tables into the workspace. Queries are
+            read-only: the API rejects anything that is not a SELECT.
           </p>
         </div>
         <button
@@ -134,6 +136,27 @@ export default function ConnectionsPage() {
           <Plus className="w-4 h-4" />
           Add connection
         </button>
+      </div>
+
+      {/* Databases are the one place in Nexora where a credential and the rows
+          it returns both cross the network. Anyone about to paste a production
+          password deserves to read that first, not discover it later. */}
+      <div className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4">
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
+        <div className="space-y-1.5 text-[12px] leading-relaxed text-on-surface-variant">
+          <p className="font-medium text-amber-200">Database connections leave this device.</p>
+          <p>
+            Unlike files, a database has to be dialed from a server. Your connection string and your
+            query are sent to Nexora&apos;s API on every test and every import, and the rows come
+            back the same way. Nexora does not write either one to a database, but they do pass
+            through the server in memory, and your host provider&apos;s request logs are outside our
+            control.
+          </p>
+          <p>
+            The string is saved unencrypted in this browser&apos;s storage so you do not retype it.
+            Prefer a read-only database user scoped to the tables you actually need.
+          </p>
+        </div>
       </div>
 
       {showForm && (

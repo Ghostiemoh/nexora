@@ -163,8 +163,14 @@ export function AppSidebar() {
 
       <div className="mt-4 flex flex-col gap-0.5 border-t border-white/[0.06] pt-4">
         {UTILITY_NAV.map(renderItem)}
+        {/* This line used to read "nothing leaves this device until you sign
+            in", which the code does not support: database imports go through
+            Nexora's server and the AI analyst sends sample rows to Google,
+            neither of which needs an account. Say what is true instead. */}
         <p className="px-3 pt-3 text-[11px] leading-relaxed text-on-surface-variant/70">
-          Every feature is unlocked. Your datasets never leave this device.
+          Every feature is unlocked. Files you open are read here on this device. Database imports
+          and the AI analyst are the two things that send data out, and each says so where you use
+          it.
         </p>
       </div>
     </aside>

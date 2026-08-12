@@ -8,7 +8,7 @@ import { Reveal } from "./sleek";
 const FAQS = [
   {
     q: "Does my data ever leave my machine?",
-    a: "No. Parsing, profiling, cleaning, SQL, and Axiom all run in your browser tab, and your datasets are never uploaded, which is why no account is required to start. Optional sync carries your cleaning recipes between devices, encrypted on your device so the server cannot read them.",
+    a: "Parsing, profiling, cleaning, SQL, and the rule-based analyst all run in your browser tab, which is why no account is required to start, and files you open are never uploaded. Two features do reach the network without an account, and both are opt-in: importing from a PostgreSQL or MySQL database sends your connection string and query through Nexora's API, and the AI analyst sends your column stats and first few rows to Google using your own key. Sync is the third, and it uploads nothing until you sign in; when you do, your datasets and cleaning recipes travel between devices compressed and encrypted here first, so the server stores bytes it has no key to read.",
   },
   {
     q: "How large a file can it handle?",

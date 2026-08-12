@@ -23,6 +23,7 @@ import {
 import { useSync } from "@/lib/sync-store";
 import { useMounted } from "@/lib/use-mounted";
 import { isRecoveryCode } from "@/lib/crypto";
+import { checkPassword, passwordMeetsPolicy, PASSWORD_MIN_LENGTH } from "@/lib/password-policy";
 
 const INPUT =
   "h-10 w-full rounded-lg border border-outline-variant bg-surface-container px-3 text-sm text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus-visible:border-primary";
@@ -79,7 +80,8 @@ function Unconfigured() {
     <Panel eyebrow="Sync" title="Sync is not available on this deployment." icon={CloudOff}>
       <p className="text-sm leading-6 text-on-surface-variant">
         Nexora is running without server credentials, so there is no account to sign in to and
-        nothing leaves this device. Everything else works exactly as it does with sync configured.
+        nothing syncs. Everything else works exactly as it does with sync configured, including the
+        database and AI features, which reach the network on their own terms whenever you use them.
       </p>
       <Note>
         Self-hosting? Set <code className="font-mono text-[11px]">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
@@ -91,11 +93,24 @@ function Unconfigured() {
 }
 
 function SignedOut() {
-  const { signInWithGoogle, signInWithPassword, signUpWithPassword, busy, error, clearError } =
-    useSync();
+  const {
+    signInWithGoogle,
+    signInWithPassword,
+    signUpWithPassword,
+    busy,
+    error,
+    clearError,
+    googleAvailable,
+  } = useSync();
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  /* Only enforced when creating an account. An existing password that predates
+   * these rules still has to be typeable, or the rules would lock people out of
+   * their own vaults rather than strengthening anything. */
+  const rules = checkPassword(password);
+  const passwordAcceptable = mode === "in" || passwordMeetsPolicy(password);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -104,34 +119,44 @@ function SignedOut() {
   };
 
   return (
-    <Panel eyebrow="Sync" title="Use your recipes on every device." icon={Cloud}>
+    <Panel eyebrow="Sync" title="Use your data on every device." icon={Cloud}>
       <p className="text-sm leading-6 text-on-surface-variant">
-        Signing in syncs your cleaning recipes and team roster, encrypted on this device before they
-        are sent. Your datasets stay here. Nothing is uploaded until you sign in, and you can delete
-        everything from the server at any time.
+        Signing in syncs your datasets, cleaning recipes and team roster to your other devices,
+        compressed and encrypted on this device before they are sent. Sync uploads nothing until you
+        sign in, and you can delete everything from the server at any time. Database imports and the
+        AI analyst reach the network on their own terms, with or without an account.
       </p>
 
-      <button
-        type="button"
-        onClick={() => void signInWithGoogle()}
-        disabled={busy}
-        className="press flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container text-sm font-medium text-on-surface transition-colors hover:bg-white/[0.06] disabled:opacity-60"
-      >
-        {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <span aria-hidden="true" className="font-semibold text-primary">
-            G
-          </span>
-        )}
-        Continue with Google
-      </button>
+      {/* Offered only when the project has the provider switched on. Otherwise
+          the redirect lands the reader on Supabase's raw JSON error, outside the
+          app, with no way back but the back button. */}
+      {googleAvailable === true && (
+        <>
+          <button
+            type="button"
+            onClick={() => void signInWithGoogle()}
+            disabled={busy}
+            className="press flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container text-sm font-medium text-on-surface transition-colors hover:bg-white/[0.06] disabled:opacity-60"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <span aria-hidden="true" className="font-semibold text-primary">
+                G
+              </span>
+            )}
+            Continue with Google
+          </button>
 
-      <div className="flex items-center gap-3" aria-hidden="true">
-        <span className="h-px flex-1 bg-outline-variant" />
-        <span className="text-[11px] uppercase tracking-wider text-on-surface-variant/70">or</span>
-        <span className="h-px flex-1 bg-outline-variant" />
-      </div>
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-outline-variant" />
+            <span className="text-[11px] uppercase tracking-wider text-on-surface-variant/70">
+              or
+            </span>
+            <span className="h-px flex-1 bg-outline-variant" />
+          </div>
+        </>
+      )}
 
       <form onSubmit={submit} className="space-y-3">
         <div>
@@ -159,7 +184,8 @@ function SignedOut() {
             id="sync-password"
             type="password"
             required
-            minLength={10}
+            minLength={mode === "up" ? PASSWORD_MIN_LENGTH : undefined}
+            aria-describedby={mode === "up" ? "sync-password-rules" : undefined}
             autoComplete={mode === "in" ? "current-password" : "new-password"}
             value={password}
             onChange={(event) => {
@@ -168,11 +194,37 @@ function SignedOut() {
             }}
             className={`mt-1 ${INPUT}`}
           />
+
+          {/* Every rule listed at once, met or not. Revealing them one rejection
+              at a time is how a reader ends up guessing at a target. */}
+          {mode === "up" && (
+            <ul id="sync-password-rules" className="mt-2 space-y-1">
+              {rules.map((rule) => (
+                <li
+                  key={rule.id}
+                  className={`flex items-center gap-1.5 text-[11px] transition-colors ${
+                    rule.met ? "text-primary" : "text-on-surface-variant/70"
+                  }`}
+                >
+                  {rule.met ? (
+                    <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="h-3 w-3 shrink-0 rounded-full border border-current opacity-40"
+                    />
+                  )}
+                  <span>{rule.label}</span>
+                  <span className="sr-only">{rule.met ? " met" : " not met yet"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !passwordAcceptable}
           className="pill h-10 w-full bg-primary text-sm text-on-primary disabled:opacity-60"
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
@@ -543,10 +595,14 @@ function Unlocked() {
 
       {error && <ErrorLine>{error}</ErrorLine>}
 
+      {/* This used to end "your datasets have not left this device at all",
+          which is the opposite of what sync does: SYNCED_KINDS includes
+          "dataset", so they are uploaded as sealed blobs. The reassuring part
+          is true and worth saying; the last sentence was not. */}
       <Note>
         The server holds ciphertext and an opaque row id per record. It has never held your
-        passphrase, your column names, or a single cell value. Your datasets have not left this
-        device at all.
+        passphrase, your column names, or a single cell value. Your datasets are up there, sealed
+        with a key it has never seen.
       </Note>
 
       <div className="rounded-lg border border-error/35 bg-error/5 p-3">
