@@ -145,3 +145,7 @@ The interesting pair is `semantics.ts` and `kpi.ts`. The first works out what a 
 The store re-profiles a dataset after every cleaning operation, which is what lets fixes cascade. Merging a typo can turn two near-identical rows into exact duplicates, and then the duplicate check catches them on the following pass.
 
 Datasets persist to localStorage behind a quota guard. Anything too large to store stays in memory for the session.
+
+## On my portfolio
+
+- Listed with my other work at [ghostiemoh.com](https://ghostiemoh.com/#work)
